@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PropertyFlow - Agent Portal</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body data-page="agent">
+  <div class="bg-orbs">
+    <div class="orb one"></div>
+    <div class="orb two"></div>
+    <div class="orb three"></div>
+  </div>
+
+  <nav class="navbar">
+    <a class="brand" href="index.html"><div class="brand-mark"><i class="fa-solid fa-building"></i></div>PropertyFlow</a>
+    <div class="nav-links">
+      <a href="index.html">Browse</a>
+      <a href="agent.html" class="active">Agent Portal</a>
+      <a href="admin.html">Admin</a>
+      <button class="btn btn-primary" id="openLoginBtn"><i class="fa-solid fa-user"></i> Sign In</button>
+    </div>
+  </nav>
+
+  <div class="container">
+    <section class="view page-view active" id="agent-dashboard">
+      <div class="page-heading">
+        <h1>Agent portal</h1>
+        <p>Everything an agent needs: listings, inquiries, deals, commissions, and protection controls.</p>
+      </div>
+
+      <div class="dashboard">
+        <aside class="sidebar glass-card">
+          <div class="sidebar-header">
+            <div class="agent-avatar">JD</div>
+            <div>
+              <h3 style="margin:0">John Doe</h3>
+              <p style="margin:2px 0 0; color: var(--muted); font-size:.84rem;">Premium Agent</p>
+            </div>
+          </div>
+          <ul class="sidebar-menu">
+            <li><a href="#" class="active" data-agent-tab="overview"><i class="fa-solid fa-chart-line"></i> Overview</a></li>
+            <li><a href="#" data-agent-tab="listings"><i class="fa-solid fa-house"></i> My Listings</a></li>
+            <li><a href="#" data-agent-tab="inquiries"><i class="fa-solid fa-envelope"></i> Inquiries <span class="badge">3</span></a></li>
+            <li><a href="#" data-agent-tab="deals"><i class="fa-solid fa-handshake"></i> Deal Pipeline</a></li>
+            <li><a href="#" data-agent-tab="commissions"><i class="fa-solid fa-coins"></i> Commissions</a></li>
+            <li><a href="#" data-agent-tab="protection"><i class="fa-solid fa-shield-halved"></i> Protection Center</a></li>
+          </ul>
+        </aside>
+
+        <main class="dashboard-content glass-card">
+          <div class="banner">
+            <div class="icon"><i class="fa-solid fa-lock"></i></div>
+            <div>
+              <h3>Business protection active</h3>
+              <p>All deals are monitored to reduce circumvention. Listing removals require a reason and admin approval. Successful deals are charged a 2% platform fee.</p>
+            </div>
+          </div>
+
+          <div id="agent-overview" class="agent-tab active">
+            <h2>Dashboard overview</h2>
+            <div class="stats-grid">
+              <div class="stat-card"><div class="stat-header"><div><div class="stat-value">12</div><div class="stat-label">Active listings</div></div><div class="stat-icon blue"><i class="fa-solid fa-home"></i></div></div><div class="stat-change positive"><i class="fa-solid fa-arrow-trend-up"></i> +2 this month</div></div>
+              <div class="stat-card"><div class="stat-header"><div><div class="stat-value">$2.4M</div><div class="stat-label">Total value listed</div></div><div class="stat-icon purple"><i class="fa-solid fa-dollar-sign"></i></div></div><div class="stat-change positive"><i class="fa-solid fa-arrow-trend-up"></i> +15% vs last month</div></div>
+              <div class="stat-card"><div class="stat-header"><div><div class="stat-value">8</div><div class="stat-label">Active inquiries</div></div><div class="stat-icon orange"><i class="fa-solid fa-envelope"></i></div></div><div class="stat-change positive"><i class="fa-solid fa-arrow-trend-up"></i> 3 new today</div></div>
+              <div class="stat-card"><div class="stat-header"><div><div class="stat-value">$48k</div><div class="stat-label">Commission paid</div></div><div class="stat-icon green"><i class="fa-solid fa-coins"></i></div></div><div class="stat-change positive"><i class="fa-solid fa-circle-check"></i> 4 deals closed</div></div>
+            </div>
+
+            <h3 style="margin-top: 24px;">Recent activity</h3>
+            <div class="audit-log glass-card">
+              <div class="audit-item"><div class="audit-time">2 mins ago</div><div class="audit-content"><span class="audit-user">New inquiry</span> received for <strong>Luxury Villa - Beverly Hills</strong></div></div>
+              <div class="audit-item"><div class="audit-time">1 hour ago</div><div class="audit-content"><span class="audit-user">Deal update</span> <strong>Modern Apartment</strong> moved to negotiation stage</div></div>
+              <div class="audit-item"><div class="audit-time">3 hours ago</div><div class="audit-content"><span class="audit-user">Commission</span> of <strong>$12,000</strong> processed for Deal #1234</div></div>
+              <div class="audit-item"><div class="audit-time">Yesterday</div><div class="audit-content"><span class="audit-user">Listing approved</span> <strong>Penthouse Suite</strong> is now live</div></div>
+            </div>
+          </div>
+
+          <div id="agent-listings" class="agent-tab">
+            <div class="section-head" style="margin-top:0">
+              <div>
+                <h2 class="section-title">My listings</h2>
+                <p class="section-sub">Add, edit, and monitor your properties.</p>
+              </div>
+              <button class="btn btn-primary" id="openAddListingBtn"><i class="fa-solid fa-plus"></i> Add new property</button>
+            </div>
+            <table class="data-table">
+              <thead>
+                <tr><th>Property</th><th>Price</th><th>Status</th><th>Inquiries</th><th>Protection</th><th>Actions</th></tr>
+              </thead>
+              <tbody id="agentListingsTable"></tbody>
+            </table>
+          </div>
+
+          <div id="agent-inquiries" class="agent-tab">
+            <h2>Inquiries</h2>
+            <div id="inquiriesList" class="audit-log glass-card"></div>
+          </div>
+
+          <div id="agent-deals" class="agent-tab">
+            <h2>Deal pipeline</h2>
+            <div class="deal-protection">
+              <div class="deal-protection-header">
+                <i class="fa-solid fa-circle-info"></i>
+                <div>
+                  <h3 style="margin:0 0 6px;">Deal protection protocol</h3>
+                  <p style="margin:0; color: var(--muted);">All negotiations should stay inside the platform. External attempts are flagged and reviewed.</p>
+                </div>
+              </div>
+            </div>
+            <table class="data-table">
+              <thead><tr><th>Deal ID</th><th>Property</th><th>Buyer</th><th>Stage</th><th>Platform fee (2%)</th><th>Actions</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td>#DEAL-2024-001</td><td>Luxury Villa - Beverly Hills</td><td>Michael Chen</td><td><span class="status-badge pending"><i class="fa-solid fa-pen-ruler"></i> Negotiation</span></td><td>$24,000</td>
+                  <td><button class="btn btn-secondary btn-sm" data-toast="Deal status updated.">Update status</button></td>
+                </tr>
+                <tr>
+                  <td>#DEAL-2024-002</td><td>Modern Apartment</td><td>Sarah Johnson</td><td><span class="status-badge active"><i class="fa-solid fa-circle-check"></i> Contract signed</span></td><td>$18,000</td>
+                  <td><button class="btn btn-success btn-sm" data-toast="Deal marked complete.">Mark complete</button></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div id="agent-commissions" class="agent-tab">
+            <h2>Commissions</h2>
+            <div class="stats-grid">
+              <div class="stat-card"><div class="stat-header"><div><div class="stat-value">$48k</div><div class="stat-label">Paid this month</div></div><div class="stat-icon green"><i class="fa-solid fa-wallet"></i></div></div><div class="stat-change positive"><i class="fa-solid fa-check"></i> 100% collected</div></div>
+              <div class="stat-card"><div class="stat-header"><div><div class="stat-value">$12k</div><div class="stat-label">Pending payout</div></div><div class="stat-icon orange"><i class="fa-solid fa-clock"></i></div></div><div class="stat-change positive"><i class="fa-solid fa-triangle-exclamation"></i> Awaiting settlement</div></div>
+              <div class="stat-card"><div class="stat-header"><div><div class="stat-value">2%</div><div class="stat-label">Platform fee</div></div><div class="stat-icon blue"><i class="fa-solid fa-percent"></i></div></div><div class="stat-change positive"><i class="fa-solid fa-shield-halved"></i> Applied automatically</div></div>
+            </div>
+            <table class="data-table">
+              <thead><tr><th>Deal</th><th>Amount</th><th>Fee</th><th>Status</th></tr></thead>
+              <tbody id="commissionsTable"></tbody>
+            </table>
+          </div>
+
+          <div id="agent-protection" class="agent-tab">
+            <h2>Business protection center</h2>
+            <div class="glass-card" style="padding:18px; margin-top:16px;">
+              <h3 style="margin-top:0; color:#86efac"><i class="fa-solid fa-shield-halved"></i> Protection status: Active</h3>
+              <p style="color:var(--muted)">Your listings are protected with activity logging, approval-based removals, and flagged circumvention detection.</p>
+              <div class="commission-grid">
+                <div class="commission-item"><div class="commission-value">Locked</div><div class="commission-label">Buyer communications</div></div>
+                <div class="commission-item"><div class="commission-value">24/7</div><div class="commission-label">Deal monitoring</div></div>
+                <div class="commission-item"><div class="commission-value">Enforced</div><div class="commission-label">Digital contracts</div></div>
+              </div>
+            </div>
+            <div style="margin-top:18px; padding:18px; border-radius:22px; background: rgba(255,255,255,.05); border:1px solid var(--border);">
+              <h3 style="margin-top:0">Request listing removal</h3>
+              <p style="color:var(--muted)">A removal request must include a valid reason and will be reviewed by admin before the listing disappears.</p>
+              <button class="btn btn-danger" id="openRemovalBtn"><i class="fa-solid fa-trash"></i> Submit removal request</button>
+            </div>
+          </div>
+        </main>
+      </div>
+    </section>
+  </div>
+
+  <div class="modal-overlay" id="loginModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title">Sign in</h3>
+        <button class="modal-close" data-close="loginModal"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group"><label class="form-label">Email</label><input id="loginEmail" class="field" type="email" placeholder="agent@propertyflow.com" /></div>
+        <div class="form-group"><label class="form-label">Password</label><input id="loginPassword" class="field" type="password" placeholder="password" /></div>
+        <div class="form-note">Use your Supabase account so new listings can be created with a real agent session.</div>
+        <div class="modal-actions"><button class="btn btn-secondary" data-close="loginModal">Cancel</button><button class="btn btn-primary" id="signInBtn">Sign in</button></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="addListingModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title">Add new property</h3>
+        <button class="modal-close" data-close="addListingModal"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">Property title</label><input id="newTitle" class="field" type="text" placeholder="Modern Apartment in Westlands" /></div>
+          <div class="form-group"><label class="form-label">Price</label><input id="newPrice" class="field" type="text" placeholder="$350,000" /></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">Type</label>
+            <select id="newType" class="select"><option>Apartment</option><option>House</option><option>Villa</option><option>Commercial</option></select>
+          </div>
+          <div class="form-group"><label class="form-label">Deal type</label>
+            <select id="newDealType" class="select"><option>Sale</option><option>Rent</option></select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">Location</label><input id="newLocation" class="field" type="text" placeholder="Nairobi, Kenya" /></div>
+          <div class="form-group"><label class="form-label">Bedrooms</label><input id="newBeds" class="field" type="number" placeholder="3" min="0" /></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">Bathrooms</label><input id="newBaths" class="field" type="number" placeholder="2" min="0" /></div>
+          <div class="form-group"><label class="form-label">Image URL</label><input id="newImage" class="field" type="url" placeholder="https://..." /></div>
+        </div>
+        <div class="form-group"><label class="form-label">Description</label><textarea id="newDesc" class="textarea" placeholder="Describe the property..."></textarea></div>
+        <div class="modal-actions"><button class="btn btn-secondary" data-close="addListingModal">Cancel</button><button class="btn btn-primary" id="saveListingBtn"><i class="fa-solid fa-floppy-disk"></i> Save listing</button></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="removalRequestModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title">Submit removal request</h3>
+        <button class="modal-close" data-close="removalRequestModal"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group"><label class="form-label">Property</label><select id="removalProperty" class="select"></select></div>
+        <div class="form-group"><label class="form-label">Reason</label><textarea id="removalReason" class="textarea" placeholder="Explain clearly why this listing should be removed."></textarea></div>
+        <div class="form-note">The stronger your reason, the less likely the request looks sketchy. Do not submit nonsense.</div>
+        <div class="modal-actions"><button class="btn btn-secondary" data-close="removalRequestModal">Cancel</button><button class="btn btn-danger" id="submitRemovalBtn"><i class="fa-solid fa-paper-plane"></i> Submit request</button></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"><i class="fa-solid fa-circle-info"></i><span id="toastText">Done.</span></div>
+
+  <script src="vendor/supabase.js"></script>
+  <script src="lib/browser-api.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

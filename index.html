@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PropertyFlow - Premium Real Estate Platform</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body data-page="marketplace">
+  <div class="bg-orbs">
+    <div class="orb one"></div>
+    <div class="orb two"></div>
+    <div class="orb three"></div>
+  </div>
+
+  <nav class="navbar">
+    <a class="brand" href="index.html"><div class="brand-mark"><i class="fa-solid fa-building"></i></div>PropertyFlow</a>
+    <div class="nav-links">
+      <a href="index.html" class="active">Browse</a>
+      <a href="agent.html">Agent Portal</a>
+      <a href="admin.html">Admin</a>
+      <button class="btn btn-primary" id="openLoginBtn"><i class="fa-solid fa-user"></i> Sign In</button>
+    </div>
+  </nav>
+
+  <div class="container">
+    <section class="view page-view active" id="marketplace">
+      <div class="hero">
+        <div class="eyebrow"><i class="fa-solid fa-shield-halved"></i> Transparent real estate with deal protection built in</div>
+        <h1>Discover your perfect property</h1>
+        <p>Agents list homes for rent or sale. Buyers and tenants connect directly through the platform, while every successful deal is tracked and charged a small commission to keep the marketplace sustainable and protected.</p>
+        <div class="trust-badges">
+          <div class="trust-badge"><i class="fa-solid fa-shield-heart"></i> Deal protection guaranteed</div>
+          <div class="trust-badge"><i class="fa-solid fa-lock"></i> Secure communication</div>
+          <div class="trust-badge"><i class="fa-solid fa-circle-check"></i> Verified agents only</div>
+          <div class="trust-badge"><i class="fa-solid fa-percent"></i> 2% platform fee</div>
+        </div>
+      </div>
+
+      <div class="search-section">
+        <div class="search-box glass-card">
+          <input id="searchInput" class="field" type="text" placeholder="Search by location, property type, or keyword..." />
+          <select id="typeFilter" class="select">
+            <option value="all">All Types</option>
+            <option value="Apartment">Apartment</option>
+            <option value="House">House</option>
+            <option value="Villa">Villa</option>
+            <option value="Commercial">Commercial</option>
+          </select>
+          <select id="dealFilter" class="select">
+            <option value="all">Any Deal</option>
+            <option value="Sale">For Sale</option>
+            <option value="Rent">For Rent</option>
+          </select>
+          <button class="btn btn-primary" id="searchBtn"><i class="fa-solid fa-magnifying-glass"></i> Search</button>
+        </div>
+      </div>
+
+      <div class="section-head">
+        <div>
+          <h2 class="section-title">Featured properties</h2>
+          <p class="section-sub">Premium listings with verified agents and transparent deal flow.</p>
+        </div>
+        <div class="tabs" id="marketTabs">
+          <button class="tab active" data-tab="all">All</button>
+          <button class="tab" data-tab="Sale">For Sale</button>
+          <button class="tab" data-tab="Rent">For Rent</button>
+        </div>
+      </div>
+
+      <div id="propertiesGrid" class="properties-grid"></div>
+    </section>
+  </div>
+
+  <div class="modal-overlay" id="loginModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title">Sign in</h3>
+        <button class="modal-close" data-close="loginModal"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group"><label class="form-label">Email</label><input id="loginEmail" class="field" type="email" placeholder="agent@propertyflow.com" /></div>
+        <div class="form-group"><label class="form-label">Password</label><input id="loginPassword" class="field" type="password" placeholder="password" /></div>
+        <div class="form-note">This demo now signs in through Supabase so you can publish listings with a real session.</div>
+        <div class="modal-actions"><button class="btn btn-secondary" data-close="loginModal">Cancel</button><button class="btn btn-primary" id="signInBtn">Sign in</button></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="addListingModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title">Add new property</h3>
+        <button class="modal-close" data-close="addListingModal"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">Property title</label><input id="newTitle" class="field" type="text" placeholder="Modern Apartment in Westlands" /></div>
+          <div class="form-group"><label class="form-label">Price</label><input id="newPrice" class="field" type="text" placeholder="$350,000" /></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">Type</label>
+            <select id="newType" class="select"><option>Apartment</option><option>House</option><option>Villa</option><option>Commercial</option></select>
+          </div>
+          <div class="form-group"><label class="form-label">Deal type</label>
+            <select id="newDealType" class="select"><option>Sale</option><option>Rent</option></select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">Location</label><input id="newLocation" class="field" type="text" placeholder="Nairobi, Kenya" /></div>
+          <div class="form-group"><label class="form-label">Bedrooms</label><input id="newBeds" class="field" type="number" placeholder="3" min="0" /></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">Bathrooms</label><input id="newBaths" class="field" type="number" placeholder="2" min="0" /></div>
+          <div class="form-group"><label class="form-label">Image URL</label><input id="newImage" class="field" type="url" placeholder="https://..." /></div>
+        </div>
+        <div class="form-group"><label class="form-label">Description</label><textarea id="newDesc" class="textarea" placeholder="Describe the property..."></textarea></div>
+        <div class="modal-actions"><button class="btn btn-secondary" data-close="addListingModal">Cancel</button><button class="btn btn-primary" id="saveListingBtn"><i class="fa-solid fa-floppy-disk"></i> Save listing</button></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="removalRequestModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title">Submit removal request</h3>
+        <button class="modal-close" data-close="removalRequestModal"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group"><label class="form-label">Property</label><select id="removalProperty" class="select"></select></div>
+        <div class="form-group"><label class="form-label">Reason</label><textarea id="removalReason" class="textarea" placeholder="Explain clearly why this listing should be removed."></textarea></div>
+        <div class="form-note">The stronger your reason, the less likely the request looks sketchy. Do not submit nonsense.</div>
+        <div class="modal-actions"><button class="btn btn-secondary" data-close="removalRequestModal">Cancel</button><button class="btn btn-danger" id="submitRemovalBtn"><i class="fa-solid fa-paper-plane"></i> Submit request</button></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"><i class="fa-solid fa-circle-info"></i><span id="toastText">Done.</span></div>
+
+  <script src="vendor/supabase.js"></script>
+  <script src="lib/browser-api.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

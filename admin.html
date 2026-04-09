@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PropertyFlow - Admin Panel</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body data-page="admin">
+  <div class="bg-orbs">
+    <div class="orb one"></div>
+    <div class="orb two"></div>
+    <div class="orb three"></div>
+  </div>
+
+  <nav class="navbar">
+    <a class="brand" href="index.html"><div class="brand-mark"><i class="fa-solid fa-building"></i></div>PropertyFlow</a>
+    <div class="nav-links">
+      <a href="index.html">Browse</a>
+      <a href="agent.html">Agent Portal</a>
+      <a href="admin.html" class="active">Admin</a>
+      <button class="btn btn-primary" id="openLoginBtn"><i class="fa-solid fa-user"></i> Sign In</button>
+    </div>
+  </nav>
+
+  <div class="container">
+    <section class="view page-view active" id="admin-panel">
+      <div class="page-heading">
+        <h1>Admin control center</h1>
+        <p>Monitor platform health, approvals, removals, and protection logs from one place.</p>
+      </div>
+
+      <div class="dashboard">
+        <aside class="sidebar glass-card">
+          <div class="sidebar-header">
+            <div class="agent-avatar" style="background: var(--gradient-3)">AD</div>
+            <div>
+              <h3 style="margin:0">Admin</h3>
+              <p style="margin:2px 0 0; color: var(--muted); font-size:.84rem;">Super Administrator</p>
+            </div>
+          </div>
+          <ul class="sidebar-menu">
+            <li><a href="#" class="active" data-admin-tab="admin-overview"><i class="fa-solid fa-chart-pie"></i> Overview</a></li>
+            <li><a href="#" data-admin-tab="admin-approvals"><i class="fa-solid fa-check-circle"></i> Approvals <span class="badge">5</span></a></li>
+            <li><a href="#" data-admin-tab="admin-agents"><i class="fa-solid fa-users"></i> Agents</a></li>
+            <li><a href="#" data-admin-tab="admin-deals"><i class="fa-solid fa-handshake"></i> All deals</a></li>
+            <li><a href="#" data-admin-tab="admin-protection"><i class="fa-solid fa-shield-halved"></i> Protection logs</a></li>
+          </ul>
+        </aside>
+
+        <main class="dashboard-content glass-card">
+          <div id="admin-overview" class="admin-tab active">
+            <h2>Platform overview</h2>
+            <div class="stats-grid">
+              <div class="stat-card"><div class="stat-header"><div><div class="stat-value">$12.4M</div><div class="stat-label">Total deal volume</div></div><div class="stat-icon blue"><i class="fa-solid fa-chart-line"></i></div></div><div class="stat-change positive"><i class="fa-solid fa-arrow-trend-up"></i> +22% this quarter</div></div>
+              <div class="stat-card"><div class="stat-header"><div><div class="stat-value">$248k</div><div class="stat-label">Platform revenue</div></div><div class="stat-icon green"><i class="fa-solid fa-coins"></i></div></div><div class="stat-change positive"><i class="fa-solid fa-percent"></i> 2% avg fee</div></div>
+              <div class="stat-card"><div class="stat-header"><div><div class="stat-value">156</div><div class="stat-label">Active listings</div></div><div class="stat-icon purple"><i class="fa-solid fa-home"></i></div></div><div class="stat-change positive"><i class="fa-solid fa-circle-check"></i> 98% verified</div></div>
+              <div class="stat-card"><div class="stat-header"><div><div class="stat-value">5</div><div class="stat-label">Pending approvals</div></div><div class="stat-icon orange"><i class="fa-solid fa-clock"></i></div></div><div class="stat-change negative"><i class="fa-solid fa-triangle-exclamation"></i> Needs attention</div></div>
+            </div>
+
+            <h3>Recent removal requests</h3>
+            <table class="data-table">
+              <thead><tr><th>Agent</th><th>Property</th><th>Reason</th><th>Submitted</th><th>Status</th><th>Action</th></tr></thead>
+              <tbody id="adminRemovalTable"></tbody>
+            </table>
+          </div>
+
+          <div id="admin-approvals" class="admin-tab">
+            <h2>Approval queue</h2>
+            <div class="glass-card" style="padding:18px; margin: 16px 0 18px; border-left: 4px solid var(--warning);">
+              <h3 style="margin-top:0"><i class="fa-solid fa-triangle-exclamation" style="color:var(--warning)"></i> Business protection alert</h3>
+              <p style="color:var(--muted); margin-bottom:0">Some agents attempted to mark properties as sold externally without platform involvement. These are flagged for review.</p>
+            </div>
+            <div id="removalRequestsList"></div>
+          </div>
+
+          <div id="admin-agents" class="admin-tab">
+            <h2>Agent management</h2>
+            <table class="data-table">
+              <thead><tr><th>Agent</th><th>Listings</th><th>Deals</th><th>Trust score</th><th>Status</th></tr></thead>
+              <tbody id="agentManagementTable"></tbody>
+            </table>
+          </div>
+
+          <div id="admin-deals" class="admin-tab">
+            <h2>All deals</h2>
+            <table class="data-table">
+              <thead><tr><th>Deal ID</th><th>Property</th><th>Buyer</th><th>Amount</th><th>Fee</th><th>Status</th></tr></thead>
+              <tbody id="allDealsTable"></tbody>
+            </table>
+          </div>
+
+          <div id="admin-protection" class="admin-tab">
+            <h2>Protection & audit logs</h2>
+            <div class="tabs" id="adminLogTabs" style="margin: 16px 0 14px;">
+              <button class="tab active" data-log-filter="all">All activity</button>
+              <button class="tab" data-log-filter="circumvention">Deal circumvention</button>
+              <button class="tab" data-log-filter="commission">Commission tracking</button>
+              <button class="tab" data-log-filter="alerts">System alerts</button>
+            </div>
+            <div id="auditLog" class="audit-log glass-card"></div>
+          </div>
+        </main>
+      </div>
+    </section>
+  </div>
+
+  <div class="modal-overlay" id="loginModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title">Sign in</h3>
+        <button class="modal-close" data-close="loginModal"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group"><label class="form-label">Email</label><input id="loginEmail" class="field" type="email" placeholder="agent@propertyflow.com" /></div>
+        <div class="form-group"><label class="form-label">Password</label><input id="loginPassword" class="field" type="password" placeholder="password" /></div>
+        <div class="form-note">Use your Supabase account if you want the admin page to share the same authenticated session as the agent tools.</div>
+        <div class="modal-actions"><button class="btn btn-secondary" data-close="loginModal">Cancel</button><button class="btn btn-primary" id="signInBtn">Sign in</button></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="addListingModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title">Add new property</h3>
+        <button class="modal-close" data-close="addListingModal"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">Property title</label><input id="newTitle" class="field" type="text" placeholder="Modern Apartment in Westlands" /></div>
+          <div class="form-group"><label class="form-label">Price</label><input id="newPrice" class="field" type="text" placeholder="$350,000" /></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">Type</label>
+            <select id="newType" class="select"><option>Apartment</option><option>House</option><option>Villa</option><option>Commercial</option></select>
+          </div>
+          <div class="form-group"><label class="form-label">Deal type</label>
+            <select id="newDealType" class="select"><option>Sale</option><option>Rent</option></select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">Location</label><input id="newLocation" class="field" type="text" placeholder="Nairobi, Kenya" /></div>
+          <div class="form-group"><label class="form-label">Bedrooms</label><input id="newBeds" class="field" type="number" placeholder="3" min="0" /></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">Bathrooms</label><input id="newBaths" class="field" type="number" placeholder="2" min="0" /></div>
+          <div class="form-group"><label class="form-label">Image URL</label><input id="newImage" class="field" type="url" placeholder="https://..." /></div>
+        </div>
+        <div class="form-group"><label class="form-label">Description</label><textarea id="newDesc" class="textarea" placeholder="Describe the property..."></textarea></div>
+        <div class="modal-actions"><button class="btn btn-secondary" data-close="addListingModal">Cancel</button><button class="btn btn-primary" id="saveListingBtn"><i class="fa-solid fa-floppy-disk"></i> Save listing</button></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="removalRequestModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title">Submit removal request</h3>
+        <button class="modal-close" data-close="removalRequestModal"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group"><label class="form-label">Property</label><select id="removalProperty" class="select"></select></div>
+        <div class="form-group"><label class="form-label">Reason</label><textarea id="removalReason" class="textarea" placeholder="Explain clearly why this listing should be removed."></textarea></div>
+        <div class="form-note">The stronger your reason, the less likely the request looks sketchy. Do not submit nonsense.</div>
+        <div class="modal-actions"><button class="btn btn-secondary" data-close="removalRequestModal">Cancel</button><button class="btn btn-danger" id="submitRemovalBtn"><i class="fa-solid fa-paper-plane"></i> Submit request</button></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"><i class="fa-solid fa-circle-info"></i><span id="toastText">Done.</span></div>
+
+  <script src="vendor/supabase.js"></script>
+  <script src="lib/browser-api.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
