@@ -49,6 +49,7 @@
             <li><a href="#" data-agent-tab="inquiries"><i class="fa-solid fa-envelope"></i> Inquiries <span class="badge">3</span></a></li>
             <li><a href="#" data-agent-tab="deals"><i class="fa-solid fa-handshake"></i> Deal Pipeline</a></li>
             <li><a href="#" data-agent-tab="commissions"><i class="fa-solid fa-coins"></i> Commissions</a></li>
+            <li><a href="#" data-agent-tab="escrow"><i class="fa-solid fa-briefcase"></i> Escrow & Verification</a></li>
             <li><a href="#" data-agent-tab="protection"><i class="fa-solid fa-shield-halved"></i> Protection Center</a></li>
           </ul>
         </aside>
@@ -138,6 +139,39 @@
               <thead><tr><th>Deal</th><th>Amount</th><th>Fee</th><th>Status</th></tr></thead>
               <tbody id="commissionsTable"></tbody>
             </table>
+          </div>
+
+          <div id="agent-escrow" class="agent-tab">
+            <h2>Escrow milestones & verification</h2>
+            <div class="section-head" style="margin-top:0">
+              <div>
+                <h3 class="section-title">Escrow milestone tracker</h3>
+                <p class="section-sub">Follow every deal milestone from deposit to settlement.</p>
+              </div>
+            </div>
+            <table class="data-table">
+              <thead><tr><th>Property</th><th>Milestone</th><th>Status</th></tr></thead>
+              <tbody id="escrowMilestonesTable"></tbody>
+            </table>
+
+            <div class="glass-card" style="margin-top:20px; padding:18px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap;">
+                <div>
+                  <h3 style="margin:0">Verification request</h3>
+                  <p style="margin:.5rem 0 0; color:var(--muted)">Submit a verification request for higher trust and fee protection.</p>
+                </div>
+                <button class="btn btn-primary" id="openVerificationRequestBtn"><i class="fa-solid fa-file-circle-plus"></i> New request</button>
+              </div>
+              <div id="verificationRequestForm" style="display:none; margin-top:16px;">
+                <div class="form-group"><label class="form-label">Verification notes</label><textarea id="verificationNotes" class="textarea" placeholder="Explain why you need verification and any supporting info."></textarea></div>
+                <div class="modal-actions" style="justify-content:flex-start;"><button class="btn btn-secondary" id="cancelVerificationBtn">Cancel</button><button class="btn btn-primary" id="submitVerificationBtn">Submit request</button></div>
+              </div>
+            </div>
+
+            <div class="glass-card" style="margin-top:20px; padding:18px;">
+              <h3 style="margin-top:0">Verification history</h3>
+              <div id="verificationRequestsList"></div>
+            </div>
           </div>
 
           <div id="agent-protection" class="agent-tab">

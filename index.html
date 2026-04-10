@@ -10,7 +10,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
   <link rel="stylesheet" href="styles.css" />
 </head>
-<body data-page="marketplace">
+<body data-page="marketplace" data-view="marketplace">
   <div class="bg-orbs">
     <div class="orb one"></div>
     <div class="orb two"></div>
@@ -18,12 +18,18 @@
   </div>
 
   <nav class="navbar">
-    <a class="brand" href="index.html"><div class="brand-mark"><i class="fa-solid fa-building"></i></div>PropertyFlow</a>
+    <a class="brand" href="javascript:void(0)" onclick="navigateToView('marketplace')"><div class="brand-mark"><i class="fa-solid fa-building"></i></div>PropertyFlow</a>
     <div class="nav-links">
-      <a href="index.html" class="active">Browse</a>
-      <a href="agent.html">Agent Portal</a>
-      <a href="admin.html">Admin</a>
+      <a href="javascript:void(0)" onclick="navigateToView('marketplace')" class="nav-link active" data-nav="marketplace">Browse</a>
+      <button class="btn btn-secondary btn-sm" id="agentPortalBtn" style="display: none;" onclick="navigateToView('agent')"><i class="fa-solid fa-briefcase"></i> Agent Portal</button>
+      <button class="btn btn-secondary btn-sm" id="adminPortalBtn" style="display: none;" onclick="navigateToView('admin')"><i class="fa-solid fa-shield-halved"></i> Admin</button>
       <button class="btn btn-primary" id="openLoginBtn"><i class="fa-solid fa-user"></i> Sign In</button>
+      <button class="btn btn-secondary btn-sm" id="userMenuBtn" style="display: none;"><span id="userLabel">Account</span> <i class="fa-solid fa-chevron-down"></i></button>
+      <div class="user-menu" id="userMenu" style="display: none;">
+        <button onclick="navigateToView('marketplace')"><i class="fa-solid fa-home"></i> Back to Browse</button>
+        <hr style="margin: 8px 0; border: none; border-top: 1px solid rgba(255,255,255,0.1);">
+        <button onclick="handleLogout()"><i class="fa-solid fa-sign-out-alt"></i> Sign Out</button>
+      </div>
     </div>
   </nav>
 
@@ -74,18 +80,295 @@
 
       <div id="propertiesGrid" class="properties-grid"></div>
     </section>
+
+    <!-- AGENT PORTAL SECTION -->
+    <section class="view page-view" id="agent-dashboard" style="display: none;">
+      <div class="page-heading">
+        <h1>Agent portal</h1>
+        <p>Everything an agent needs: listings, inquiries, deals, commissions, and protection controls.</p>
+      </div>
+
+      <div class="dashboard">
+        <aside class="sidebar glass-card">
+          <div class="sidebar-header">
+            <div class="agent-avatar" id="agentAvatarInitials">JD</div>
+            <div>
+              <h3 id="agentDisplayName" style="margin:0">John Doe</h3>
+              <p style="margin:2px 0 0; color: var(--muted); font-size:.84rem;">Premium Agent</p>
+            </div>
+          </div>
+          <ul class="sidebar-menu">
+            <li><a href="#" class="active" data-agent-tab="overview"><i class="fa-solid fa-chart-line"></i> Overview</a></li>
+            <li><a href="#" data-agent-tab="listings"><i class="fa-solid fa-house"></i> My Listings</a></li>
+            <li><a href="#" data-agent-tab="inquiries"><i class="fa-solid fa-envelope"></i> Inquiries <span class="badge">3</span></a></li>
+            <li><a href="#" data-agent-tab="deals"><i class="fa-solid fa-handshake"></i> Deal Pipeline</a></li>
+            <li><a href="#" data-agent-tab="commissions"><i class="fa-solid fa-coins"></i> Commissions</a></li>
+            <li><a href="#" data-agent-tab="escrow"><i class="fa-solid fa-briefcase"></i> Escrow & Verification</a></li>
+            <li><a href="#" data-agent-tab="protection"><i class="fa-solid fa-shield-halved"></i> Protection Center</a></li>
+          </ul>
+        </aside>
+
+        <main class="dashboard-content glass-card">
+          <div class="banner">
+            <div class="icon"><i class="fa-solid fa-lock"></i></div>
+            <div>
+              <h3>Business protection active</h3>
+              <p>All deals are monitored to reduce circumvention. Listing removals require a reason and admin approval. Successful deals are charged a 2% platform fee.</p>
+            </div>
+          </div>
+
+          <div id="agent-overview" class="agent-tab active">
+            <h2>Dashboard overview</h2>
+            <div class="stats-grid">
+              <div class="stat-card"><div class="stat-header"><div><div class="stat-value">12</div><div class="stat-label">Active listings</div></div><div class="stat-icon blue"><i class="fa-solid fa-home"></i></div></div><div class="stat-change positive"><i class="fa-solid fa-arrow-trend-up"></i> +2 this month</div></div>
+              <div class="stat-card"><div class="stat-header"><div><div class="stat-value">$2.4M</div><div class="stat-label">Total value listed</div></div><div class="stat-icon purple"><i class="fa-solid fa-dollar-sign"></i></div></div><div class="stat-change positive"><i class="fa-solid fa-arrow-trend-up"></i> +15% vs last month</div></div>
+              <div class="stat-card"><div class="stat-header"><div><div class="stat-value">8</div><div class="stat-label">Active inquiries</div></div><div class="stat-icon orange"><i class="fa-solid fa-envelope"></i></div></div><div class="stat-change positive"><i class="fa-solid fa-arrow-trend-up"></i> 3 new today</div></div>
+              <div class="stat-card"><div class="stat-header"><div><div class="stat-value">$48k</div><div class="stat-label">Commission paid</div></div><div class="stat-icon green"><i class="fa-solid fa-coins"></i></div></div><div class="stat-change positive"><i class="fa-solid fa-circle-check"></i> 4 deals closed</div></div>
+            </div>
+
+            <h3 style="margin-top: 24px;">Recent activity</h3>
+            <div class="audit-log glass-card">
+              <div class="audit-item"><div class="audit-time">2 mins ago</div><div class="audit-content"><span class="audit-user">New inquiry</span> received for <strong>Luxury Villa - Beverly Hills</strong></div></div>
+              <div class="audit-item"><div class="audit-time">1 hour ago</div><div class="audit-content"><span class="audit-user">Deal update</span> <strong>Modern Apartment</strong> moved to negotiation stage</div></div>
+              <div class="audit-item"><div class="audit-time">3 hours ago</div><div class="audit-content"><span class="audit-user">Commission</span> of <strong>$12,000</strong> processed for Deal #1234</div></div>
+              <div class="audit-item"><div class="audit-time">Yesterday</div><div class="audit-content"><span class="audit-user">Listing approved</span> <strong>Penthouse Suite</strong> is now live</div></div>
+            </div>
+          </div>
+
+          <div id="agent-listings" class="agent-tab">
+            <div class="section-head" style="margin-top:0">
+              <div>
+                <h2 class="section-title">My listings</h2>
+                <p class="section-sub">Add, edit, and monitor your properties.</p>
+              </div>
+              <button class="btn btn-primary" id="openAddListingBtn"><i class="fa-solid fa-plus"></i> Add new property</button>
+            </div>
+            <table class="data-table">
+              <thead>
+                <tr><th>Property</th><th>Price</th><th>Status</th><th>Inquiries</th><th>Protection</th><th>Actions</th></tr>
+              </thead>
+              <tbody id="agentListingsTable"></tbody>
+            </table>
+          </div>
+
+          <div id="agent-inquiries" class="agent-tab">
+            <h2>Inquiries</h2>
+            <div id="inquiriesList" class="audit-log glass-card"></div>
+          </div>
+
+          <div id="agent-deals" class="agent-tab">
+            <h2>Deal pipeline</h2>
+            <div class="deal-protection">
+              <div class="deal-protection-header">
+                <i class="fa-solid fa-circle-info"></i>
+                <div>
+                  <h3 style="margin:0 0 6px;">Deal protection protocol</h3>
+                  <p style="margin:0; color: var(--muted);">All negotiations should stay inside the platform. External attempts are flagged and reviewed.</p>
+                </div>
+              </div>
+            </div>
+            <table class="data-table">
+              <thead><tr><th>Deal ID</th><th>Property</th><th>Buyer</th><th>Stage</th><th>Platform fee (2%)</th><th>Actions</th></tr></thead>
+              <tbody id="agentDealsTable"></tbody>
+            </table>
+          </div>
+
+          <div id="agent-commissions" class="agent-tab">
+            <h2>Commissions</h2>
+            <div class="stats-grid">
+              <div class="stat-card"><div class="stat-header"><div><div class="stat-value">$48k</div><div class="stat-label">Paid this month</div></div><div class="stat-icon green"><i class="fa-solid fa-wallet"></i></div></div><div class="stat-change positive"><i class="fa-solid fa-check"></i> 100% collected</div></div>
+              <div class="stat-card"><div class="stat-header"><div><div class="stat-value">$12k</div><div class="stat-label">Pending payout</div></div><div class="stat-icon orange"><i class="fa-solid fa-clock"></i></div></div><div class="stat-change positive"><i class="fa-solid fa-triangle-exclamation"></i> Awaiting settlement</div></div>
+              <div class="stat-card"><div class="stat-header"><div><div class="stat-value">2%</div><div class="stat-label">Platform fee</div></div><div class="stat-icon blue"><i class="fa-solid fa-percent"></i></div></div><div class="stat-change positive"><i class="fa-solid fa-shield-halved"></i> Applied automatically</div></div>
+            </div>
+            <table class="data-table">
+              <thead><tr><th>Deal</th><th>Amount</th><th>Fee</th><th>Status</th></tr></thead>
+              <tbody id="commissionsTable"></tbody>
+            </table>
+          </div>
+
+          <div id="agent-escrow" class="agent-tab">
+            <h2>Escrow milestones & verification</h2>
+            <div class="section-head" style="margin-top:0">
+              <div>
+                <h3 class="section-title">Escrow milestone tracker</h3>
+                <p class="section-sub">Follow every deal milestone from deposit to settlement.</p>
+              </div>
+            </div>
+            <table class="data-table">
+              <thead><tr><th>Property</th><th>Milestone</th><th>Status</th></tr></thead>
+              <tbody id="escrowMilestonesTable"></tbody>
+            </table>
+
+            <div class="glass-card" style="margin-top:20px; padding:18px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap;">
+                <div>
+                  <h3 style="margin:0">Verification request</h3>
+                  <p style="margin:.5rem 0 0; color:var(--muted)">Submit a verification request for higher trust and fee protection.</p>
+                </div>
+                <button class="btn btn-primary" id="openVerificationRequestBtn"><i class="fa-solid fa-file-circle-plus"></i> New request</button>
+              </div>
+              <div id="verificationRequestForm" style="display:none; margin-top:16px;">
+                <div class="form-group"><label class="form-label">Verification notes</label><textarea id="verificationNotes" class="textarea" placeholder="Explain why you need verification and any supporting info."></textarea></div>
+                <div class="modal-actions" style="justify-content:flex-start;"><button class="btn btn-secondary" id="cancelVerificationBtn">Cancel</button><button class="btn btn-primary" id="submitVerificationBtn">Submit request</button></div>
+              </div>
+            </div>
+
+            <div class="glass-card" style="margin-top:20px; padding:18px;">
+              <h3 style="margin-top:0">Verification history</h3>
+              <div id="verificationRequestsList"></div>
+            </div>
+          </div>
+
+          <div id="agent-protection" class="agent-tab">
+            <h2>Business protection center</h2>
+            <div class="glass-card" style="padding:18px; margin-top:16px;">
+              <h3 style="margin-top:0; color:#86efac"><i class="fa-solid fa-shield-halved"></i> Protection status: Active</h3>
+              <p style="color:var(--muted)">Your listings are protected with activity logging, approval-based removals, and flagged circumvention detection.</p>
+              <div class="commission-grid">
+                <div class="commission-item"><div class="commission-value">Locked</div><div class="commission-label">Buyer communications</div></div>
+                <div class="commission-item"><div class="commission-value">24/7</div><div class="commission-label">Deal monitoring</div></div>
+                <div class="commission-item"><div class="commission-value">Enforced</div><div class="commission-label">Digital contracts</div></div>
+              </div>
+            </div>
+            <div style="margin-top:18px; padding:18px; border-radius:22px; background: rgba(255,255,255,.05); border:1px solid var(--border);">
+              <h3 style="margin-top:0">Request listing removal</h3>
+              <p style="color:var(--muted)">A removal request must include a valid reason and will be reviewed by admin before the listing disappears.</p>
+              <button class="btn btn-danger" id="openRemovalBtn"><i class="fa-solid fa-trash"></i> Submit removal request</button>
+            </div>
+          </div>
+        </main>
+      </div>
+    </section>
+
+    <!-- ADMIN PORTAL SECTION -->
+    <section class="view page-view" id="admin-dashboard" style="display: none;">
+      <div class="page-heading">
+        <h1>Admin Control Center</h1>
+        <p>Monitor agents, approve removals, manage commissions, and enforce marketplace integrity.</p>
+      </div>
+
+      <div class="dashboard">
+        <aside class="sidebar glass-card">
+          <div class="sidebar-header">
+            <div class="agent-avatar">AD</div>
+            <div>
+              <h3 style="margin:0">Administrator</h3>
+              <p style="margin:2px 0 0; color: var(--muted); font-size:.84rem;">System Admin</p>
+            </div>
+          </div>
+          <ul class="sidebar-menu">
+            <li><a href="#" class="active" data-admin-tab="admin-overview"><i class="fa-solid fa-chart-line"></i> Overview</a></li>
+            <li><a href="#" data-admin-tab="admin-agents"><i class="fa-solid fa-users"></i> Agents</a></li>
+            <li><a href="#" data-admin-tab="admin-approvals"><i class="fa-solid fa-clipboard-check"></i> Removals <span class="badge">3</span></a></li>
+            <li><a href="#" data-admin-tab="admin-deals"><i class="fa-solid fa-handshake"></i> Deal Monitor</a></li>
+            <li><a href="#" data-admin-tab="admin-commissions"><i class="fa-solid fa-receipt"></i> Commissions</a></li>
+            <li><a href="#" data-admin-tab="admin-escrow"><i class="fa-solid fa-briefcase"></i> Escrow</a></li>
+            <li><a href="#" data-admin-tab="admin-alerts"><i class="fa-solid fa-triangle-exclamation"></i> Alerts & Logs</a></li>
+          </ul>
+        </aside>
+
+        <main class="dashboard-content glass-card">
+          <div class="banner">
+            <div class="icon"><i class="fa-solid fa-shield-halved"></i></div>
+            <div>
+              <h3>Marketplace integrity protected</h3>
+              <p>System monitoring active. 2% platform fee auto-collected on completed deals. All agent submissions require approval.</p>
+            </div>
+          </div>
+
+          <div id="admin-overview" class="admin-tab active">
+            <h2>Dashboard overview</h2>
+            <div class="stats-grid">
+              <div class="stat-card"><div class="stat-header"><div><div class="stat-value">45</div><div class="stat-label">Active agents</div></div><div class="stat-icon blue"><i class="fa-solid fa-users"></i></div></div><div class="stat-change positive"><i class="fa-solid fa-arrow-trend-up"></i> +3 this month</div></div>
+              <div class="stat-card"><div class="stat-header"><div><div class="stat-value">$180M</div><div class="stat-label">Total listed value</div></div><div class="stat-icon purple"><i class="fa-solid fa-chart-bar"></i></div></div><div class="stat-change positive"><i class="fa-solid fa-arrow-trend-up"></i> +22% YoY</div></div>
+              <div class="stat-card"><div class="stat-header"><div><div class="stat-value">$4.2M</div><div class="stat-label">Platform fees (YTD)</div></div><div class="stat-icon green"><i class="fa-solid fa-wallet"></i></div></div><div class="stat-change positive"><i class="fa-solid fa-check"></i> 289 deals</div></div>
+              <div class="stat-card"><div class="stat-header"><div><div class="stat-value">3</div><div class="stat-label">Pending reviews</div></div><div class="stat-icon orange"><i class="fa-solid fa-hourglass-end"></i></div></div><div class="stat-change positive"><i class="fa-solid fa-triangle-exclamation"></i> Action required</div></div>
+            </div>
+
+            <h3 style="margin-top: 24px;">System activity log</h3>
+            <div class="audit-log glass-card" id="adminActivityLog"></div>
+          </div>
+
+          <div id="admin-agents" class="admin-tab">
+            <h2>Agent management</h2>
+            <table class="data-table">
+              <thead>
+                <tr><th>Agent</th><th>Listings</th><th>Deals</th><th>Trust score</th><th>Verification</th></tr>
+              </thead>
+              <tbody id="agentManagementTable"></tbody>
+            </table>
+          </div>
+
+          <div id="admin-approvals" class="admin-tab">
+            <h2>Removal request approvals</h2>
+            <div class="alert-box">
+              <i class="fa-solid fa-exclamation-triangle"></i>
+              <p><strong>3 pending requests</strong> require review. Approve or reject based on justification quality.</p>
+            </div>
+            <table class="data-table">
+              <thead>
+                <tr><th>Agent</th><th>Property</th><th>Reason</th><th>Submitted</th><th>Actions</th></tr>
+              </thead>
+              <tbody id="adminRemovalTable"></tbody>
+            </table>
+          </div>
+
+          <div id="admin-deals" class="admin-tab">
+            <h2>Deal monitoring</h2>
+            <table class="data-table">
+              <thead>
+                <tr><th>Deal ID</th><th>Property</th><th>Amount</th><th>Platform fee</th><th>Status</th><th>Risk level</th></tr>
+              </thead>
+              <tbody id="adminDealsTable"></tbody>
+            </table>
+          </div>
+
+          <div id="admin-commissions" class="admin-tab">
+            <h2>Commission management</h2>
+            <div class="stats-grid">
+              <div class="stat-card"><div class="stat-header"><div><div class="stat-value">$4.2M</div><div class="stat-label">Total collected (YTD)</div></div><div class="stat-icon green"><i class="fa-solid fa-coins"></i></div></div><div class="stat-change positive"><i class="fa-solid fa-check"></i> 100% efficient</div></div>
+            </div>
+            <table class="data-table">
+              <thead><tr><th>Agent</th><th>Deals completed</th><th>Commission</th><th>Payment status</th></tr></thead>
+              <tbody id="adminCommissionsTable"></tbody>
+            </table>
+          </div>
+
+          <div id="admin-escrow" class="admin-tab">
+            <h2>Escrow & settlement tracking</h2>
+            <table class="data-table">
+              <thead><tr><th>Deal</th><th>Stage</th><th>Funds held</th><th>Expected completion</th></tr></thead>
+              <tbody id="adminEscrowTable"></tbody>
+            </table>
+          </div>
+
+          <div id="admin-alerts" class="admin-tab">
+            <h2>Alerts, flags & audit logs</h2>
+            <div class="audit-log glass-card" id="adminAuditLog"></div>
+          </div>
+        </main>
+      </div>
+    </section>
   </div>
 
   <div class="modal-overlay" id="loginModal">
     <div class="modal">
       <div class="modal-header">
-        <h3 class="modal-title">Sign in</h3>
+        <h3 class="modal-title">Sign in to PropertyFlow</h3>
         <button class="modal-close" data-close="loginModal"><i class="fa-solid fa-xmark"></i></button>
       </div>
       <div class="modal-body">
+        <div class="login-role-selector" style="display: flex; gap: 12px; margin-bottom: 20px;">
+          <button id="loginRoleAgent" class="btn btn-secondary" onclick="setLoginRole('agent')" style="flex: 1; background: rgba(37, 99, 235, 0.2); border-color: rgba(37, 99, 235, 0.4); color: #60a5fa;">
+            <i class="fa-solid fa-briefcase"></i> Agent
+          </button>
+          <button id="loginRoleAdmin" class="btn btn-secondary" onclick="setLoginRole('admin')" style="flex: 1;">
+            <i class="fa-solid fa-shield-halved"></i> Admin
+          </button>
+        </div>
         <div class="form-group"><label class="form-label">Email</label><input id="loginEmail" class="field" type="email" placeholder="agent@propertyflow.com" /></div>
         <div class="form-group"><label class="form-label">Password</label><input id="loginPassword" class="field" type="password" placeholder="password" /></div>
-        <div class="form-note">This demo now signs in through Supabase so you can publish listings with a real session.</div>
+        <div class="form-note">Use your Supabase account to sign in. Password is not validated in demo mode.</div>
         <div class="modal-actions"><button class="btn btn-secondary" data-close="loginModal">Cancel</button><button class="btn btn-primary" id="signInBtn">Sign in</button></div>
       </div>
     </div>

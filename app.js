@@ -6,6 +6,7 @@ const DEFAULT_AGENT = {
 };
 const FALLBACK_IMAGE =
   'https://images.unsplash.com/photo-1460317442991-0ec209397118?auto=format&fit=crop&w=1200&q=80';
+const COMMISSION_RATE = 0.02;
 const currencyFormatter = new Intl.NumberFormat('en-US', {
   style: 'currency',
   currency: 'USD',
@@ -14,6 +15,10 @@ const currencyFormatter = new Intl.NumberFormat('en-US', {
 
 const state = {
   currentUser: null,
+  userRole: null, // 'agent' or 'admin'
+  userEmail: null,
+  loginRole: 'agent', // role being attempted for login
+  currentView: 'marketplace', // 'marketplace', 'agent', 'admin'
   activeMarketTab: 'all',
   search: '',
   type: 'all',
@@ -23,6 +28,7 @@ const state = {
       id: 1,
       title: 'Luxury Villa - Beverly Hills',
       price: '$1,200,000',
+      priceValue: 1200000,
       type: 'Villa',
       dealType: 'Sale',
       location: 'Beverly Hills, CA',
@@ -39,6 +45,7 @@ const state = {
       id: 2,
       title: 'Modern Apartment with Skyline View',
       price: '$3,200/mo',
+      priceValue: 3200,
       type: 'Apartment',
       dealType: 'Rent',
       location: 'Downtown, Nairobi',
@@ -55,6 +62,7 @@ const state = {
       id: 3,
       title: 'Contemporary Family House',
       price: '$680,000',
+      priceValue: 680000,
       type: 'House',
       dealType: 'Sale',
       location: 'Kilimani, Nairobi',
@@ -71,6 +79,7 @@ const state = {
       id: 4,
       title: 'Premium Commercial Office Suite',
       price: '$8,500/mo',
+      priceValue: 8500,
       type: 'Commercial',
       dealType: 'Rent',
       location: 'Westlands, Nairobi',
@@ -87,6 +96,7 @@ const state = {
       id: 5,
       title: 'Penthouse Suite Above the City',
       price: '$2,800,000',
+      priceValue: 2800000,
       type: 'Apartment',
       dealType: 'Sale',
       location: 'Miami, FL',
@@ -103,6 +113,7 @@ const state = {
       id: 6,
       title: 'Garden House with Private Courtyard',
       price: '$2,700/mo',
+      priceValue: 2700,
       type: 'House',
       dealType: 'Rent',
       location: 'Karen, Nairobi',
@@ -134,10 +145,29 @@ const state = {
     { name: 'David Otieno', listings: 6, deals: 3, trust: 91, status: 'Review clear' }
   ],
   deals: [
-    { id: '#DEAL-2024-001', property: 'Luxury Villa - Beverly Hills', buyer: 'Michael Chen', amount: '$1,200,000', fee: '$24,000', status: 'Negotiation' },
-    { id: '#DEAL-2024-002', property: 'Modern Apartment', buyer: 'Sarah Johnson', amount: '$720,000', fee: '$14,400', status: 'Contract signed' },
-    { id: '#DEAL-2024-003', property: 'Penthouse Suite', buyer: 'Olivia Brown', amount: '$2,800,000', fee: '$56,000', status: 'Payment pending' },
-    { id: '#DEAL-2024-004', property: 'Garden House', buyer: 'Ahmed Ali', amount: '$2,700/mo', fee: '$54', status: 'Completed' }
+    { id: '#DEAL-2024-001', property: 'Luxury Villa - Beverly Hills', buyer: 'Michael Chen', amount: '$1,200,000', amountValue: 1200000, fee: '$24,000', status: 'Negotiation', escrowStage: 'Inspection' },
+    { id: '#DEAL-2024-002', property: 'Modern Apartment', buyer: 'Sarah Johnson', amount: '$720,000', amountValue: 720000, fee: '$14,400', status: 'Contract signed', escrowStage: 'Escrow setup' },
+    { id: '#DEAL-2024-003', property: 'Penthouse Suite', buyer: 'Olivia Brown', amount: '$2,800,000', amountValue: 2800000, fee: '$56,000', status: 'Payment pending', escrowStage: 'Funds clearing' },
+    { id: '#DEAL-2024-004', property: 'Garden House', buyer: 'Ahmed Ali', amount: '$2,700/mo', amountValue: 2700, fee: '$54', status: 'Completed', escrowStage: 'Settled' }
+  ],
+  escrowMilestones: [
+    { id: 1, property: 'Luxury Villa - Beverly Hills', step: 'Initial deposit', status: 'Completed' },
+    { id: 2, property: 'Modern Apartment', step: 'Title search', status: 'In progress' },
+    { id: 3, property: 'Penthouse Suite', step: 'Escrow hold', status: 'Pending' }
+  ],
+  agentVerifications: [
+    { id: 101, agent: DEFAULT_AGENT.name, status: 'Verified', submitted: '3 days ago', note: 'KYC and branding audit passed.' },
+    { id: 102, agent: 'David Otieno', status: 'Review clear', submitted: '1 day ago', note: 'License pending renewal.' }
+  ],
+  riskAlerts: [
+    {
+      id: 1,
+      time: 'Today',
+      property: 'Modern Apartment with Skyline View',
+      agent: 'Sarah Johnson',
+      reason: 'Potential off-platform negotiation detected',
+      severity: 'high'
+    }
   ],
   logs: [
     { time: '10 mins ago', type: 'alerts', user: 'ALERT', content: 'Agent John Doe attempted to remove listing citing external sale - platform fee not paid. Property: Luxury Villa Miami | Value: $1.2M | Lost Fee: $24,000' },
@@ -153,8 +183,8 @@ const state = {
   ]
 };
 
-const $ = (sel, root = document) => root.querySelector(sel);
-const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+const $ = (selector, root = document) => root.querySelector(selector);
+const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
 
 function showToast(message, type = 'success') {
   const toast = $('#toast');
@@ -169,12 +199,13 @@ function showToast(message, type = 'success') {
     icon.className =
       type === 'success' ? 'fa-solid fa-circle-check' :
       type === 'error' ? 'fa-solid fa-circle-xmark' :
-      'fa-solid fa-triangle-exclamation';
+      type === 'warning' ? 'fa-solid fa-triangle-exclamation' :
+      'fa-solid fa-circle-info';
   }
 
   toast.classList.add('show');
   clearTimeout(window.toastTimer);
-  window.toastTimer = setTimeout(() => toast.classList.remove('show'), 2400);
+  window.toastTimer = setTimeout(() => toast.classList.remove('show'), 2800);
 }
 
 function openModal(id) {
@@ -185,6 +216,56 @@ function openModal(id) {
 function closeModal(id) {
   const el = $('#' + id);
   if (el) el.classList.remove('active');
+}
+
+// NEW VIEW MANAGEMENT FUNCTIONS
+function navigateToView(viewName) {
+  // Hide all views
+  $$('.page-view').forEach(view => view.style.display = 'none');
+  
+  // Show the requested view
+  const targetView = $('#' + (viewName === 'agent' ? 'agent-dashboard' : viewName === 'admin' ? 'admin-dashboard' : 'marketplace'));
+  if (targetView) {
+    targetView.style.display = 'block';
+  }
+  
+  // Update current view state
+  state.currentView = viewName;
+  document.body.dataset.view = viewName;
+  
+  // Scroll to top
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  
+  // Update navigation
+  $$('.nav-link').forEach(link => link.classList.remove('active'));
+  if (viewName === 'marketplace') {
+    document.querySelector('[data-nav="marketplace"]')?.classList.add('active');
+  }
+}
+
+function setLoginRole(role) {
+  state.loginRole = role;
+  // Update role selector buttons styling
+  const agentBtn = $('#loginRoleAgent');
+  const adminBtn = $('#loginRoleAdmin');
+  if (agentBtn && adminBtn) {
+    if (role === 'agent') {
+      agentBtn.style.background = 'rgba(37, 99, 235, 0.2)';
+      agentBtn.style.borderColor = 'rgba(37, 99, 235, 0.4)';
+      agentBtn.style.color = '#60a5fa';
+      adminBtn.style.background = 'rgba(255,255,255,.08)';
+      adminBtn.style.borderColor = 'rgba(255,255,255,.15)';
+      adminBtn.style.color = 'var(--text)';
+    } else {
+      adminBtn.style.background = 'rgba(37, 99, 235, 0.2)';
+      adminBtn.style.borderColor = 'rgba(37, 99, 235, 0.4)';
+      adminBtn.style.color = '#60a5fa';
+      agentBtn.style.background = 'rgba(255,255,255,.08)';
+      agentBtn.style.borderColor = 'rgba(255,255,255,.15)';
+      agentBtn.style.color = 'var(--text)';
+    }
+  }
+  if ($('#loginEmail')) $('#loginEmail').placeholder = role === 'agent' ? 'agent@propertyflow.com' : 'admin@propertyflow.com';
 }
 
 function showView(viewId) {
@@ -198,6 +279,7 @@ function showAgentTab(tab) {
   $$('.agent-tab').forEach((el) => el.classList.remove('active'));
   const target = $('#agent-' + tab);
   if (target) target.classList.add('active');
+
   $$('.sidebar-menu a[data-agent-tab]').forEach((link) => link.classList.remove('active'));
   const activeLink = document.querySelector(`.sidebar-menu a[data-agent-tab="${tab}"]`);
   if (activeLink) activeLink.classList.add('active');
@@ -207,18 +289,14 @@ function showAdminTab(tab) {
   $$('.admin-tab').forEach((el) => el.classList.remove('active'));
   const target = $('#' + tab);
   if (target) target.classList.add('active');
+
   $$('.sidebar-menu a[data-admin-tab]').forEach((link) => link.classList.remove('active'));
   const activeLink = document.querySelector(`.sidebar-menu a[data-admin-tab="${tab}"]`);
   if (activeLink) activeLink.classList.add('active');
 }
 
 function inferInitials(value) {
-  const parts = String(value || '')
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2);
-
+  const parts = String(value || '').trim().split(/\s+/).filter(Boolean).slice(0, 2);
   if (!parts.length) return DEFAULT_AGENT.initials;
   return parts.map((part) => part[0]).join('').toUpperCase();
 }
@@ -259,7 +337,9 @@ function formatPrice(value, dealType) {
   }
 
   const trimmed = String(value).trim();
-  if (trimmed.startsWith('$')) return trimmed;
+  if (trimmed.startsWith('$')) {
+    return trimmed;
+  }
 
   const parsed = parsePriceValue(trimmed);
   if (parsed == null) return trimmed;
@@ -279,10 +359,7 @@ function buildListing(property) {
 }
 
 function normalizeStatusToken(value) {
-  return String(value || '')
-    .trim()
-    .toLowerCase()
-    .replace(/[\s-]+/g, '_');
+  return String(value || '').trim().toLowerCase().replace(/[\s-]+/g, '_');
 }
 
 function normalizeRemovalStatus(value) {
@@ -295,6 +372,15 @@ function normalizeRemovalStatus(value) {
 function removalStatusClass(status) {
   const normalized = normalizeRemovalStatus(status);
   return normalized === 'Approved' ? 'active' : normalized === 'Rejected' ? 'alert' : 'pending';
+}
+
+function statusClass(status) {
+  if (!status) return 'pending';
+  const token = normalizeStatusToken(status);
+  if (token === 'completed' || token === 'verified' || token === 'active') return 'active';
+  if (token === 'negotiation' || token === 'pending' || token === 'in_progress' || token === 'payment_pending') return 'pending';
+  if (token === 'rejected' || token === 'alert' || token === 'watch') return 'alert';
+  return 'pending';
 }
 
 function isPropertyRemoved(property) {
@@ -346,7 +432,6 @@ function removeListingByPropertyTitle(title) {
 function updateRemovalRequestBadge() {
   const badge = document.querySelector('[data-admin-tab="admin-approvals"] .badge');
   if (!badge) return;
-
   const pendingCount = state.removalRequests.filter(isPendingRemovalRequest).length;
   badge.textContent = String(pendingCount);
 }
@@ -356,11 +441,13 @@ function normalizePropertyRecord(record) {
   const type = normalizePropertyType(record.property_type ?? record.type);
   const agent = record.agent_name || record.agent || DEFAULT_AGENT.name;
   const agency = record.agency_name || record.agency || DEFAULT_AGENT.agency;
+  const priceValue = parsePriceValue(record.price ?? record.price_value ?? record.priceValue) ?? null;
 
   return {
     id: record.id ?? Date.now(),
     title: record.title || 'Untitled Property',
-    price: formatPrice(record.price, dealType),
+    price: formatPrice(record.price ?? record.priceValue ?? '', dealType),
+    priceValue: priceValue,
     type,
     dealType,
     location: record.location || 'Location unavailable',
@@ -396,6 +483,66 @@ function normalizeRemovalRequest(record) {
   };
 }
 
+function normalizeDealRecord(record) {
+  const amountValue = parsePriceValue(record.amount ?? record.amount_value ?? record.amountValue) ?? 0;
+  const feeValue = Math.round(amountValue * COMMISSION_RATE);
+  const fee = amountValue ? currencyFormatter.format(feeValue) : record.fee || '$0';
+  const stage = record.escrow_stage || record.escrowStage || 'Setup';
+
+  return {
+    id: record.id ?? `#DEAL-${Date.now()}`,
+    property: record.property || 'Unknown property',
+    buyer: record.buyer || record.buyer_name || '-',
+    amount: formatPrice(record.amount ?? record.amountValue ?? amountValue, record.dealType || 'Sale'),
+    amountValue,
+    fee,
+    status: record.status || 'Negotiation',
+    escrowStage: stage,
+    agent: record.agent || record.agent_name || DEFAULT_AGENT.name
+  };
+}
+
+function normalizeAgentVerification(record) {
+  return {
+    id: record.id ?? `verify-${Date.now()}`,
+    agent: record.agent_name || record.agent || DEFAULT_AGENT.name,
+    status: String(record.status || 'pending').toLowerCase() === 'verified' ? 'Verified' : String(record.status || 'pending').toLowerCase() === 'rejected' ? 'Review clear' : 'Pending verification',
+    submitted: record.submitted_at || record.submittedAt || 'Unknown',
+    note: record.note || record.reason || ''
+  };
+}
+
+function normalizeRiskAlert(record) {
+  return {
+    id: record.id ?? `risk-${Date.now()}`,
+    time: record.time || formatRelativeTime(record.created_at || record.createdAt),
+    property: record.property || 'Unknown property',
+    agent: record.agent || DEFAULT_AGENT.name,
+    reason: record.reason || record.description || 'Risk event detected',
+    severity: record.severity || 'medium'
+  };
+}
+
+function syncAgentVerificationStatus() {
+  if (!state.agentVerifications || !state.agentVerifications.length) return;
+  const lookup = state.agentVerifications.reduce((acc, item) => {
+    acc[item.agent] = item;
+    return acc;
+  }, {});
+
+  state.agents = state.agents.map((agent) => {
+    const verification = lookup[agent.name];
+    if (verification) {
+      return {
+        ...agent,
+        status: verification.status,
+        verified: verification.status === 'Verified'
+      };
+    }
+    return agent;
+  });
+}
+
 function syncRemovalRequestPresentation() {
   state.removalRequests = state.removalRequests.map((request) => normalizeRemovalRequest(request));
   renderAdminRemovalTable();
@@ -412,6 +559,35 @@ function addAuditLog(type, user, content) {
   renderAuditLog(getActiveLogFilter());
 }
 
+function addRiskAlert(alert) {
+  const normalized = normalizeRiskAlert(alert);
+  state.riskAlerts.unshift(normalized);
+  addAuditLog('circumvention', 'SYSTEM', `${normalized.reason} for ${normalized.property} by ${normalized.agent}.`);
+
+  if (api?.available && api.createRiskAlert) {
+    void api.createRiskAlert({
+      property: normalized.property,
+      agent: normalized.agent,
+      reason: normalized.reason,
+      severity: normalized.severity,
+      created_at: new Date().toISOString()
+    });
+  }
+}
+
+function detectCircumvention(reason, propertyTitle, agentName) {
+  const triggerWords = /external|cash|outside|off[-\s]?platform|direct|bypass|skip|private|commission free|untracked/i;
+  if (!reason || !triggerWords.test(reason)) return false;
+
+  addRiskAlert({
+    property: propertyTitle,
+    agent: agentName,
+    reason: `Potential circumvention activity detected in removal request: "${reason}"`,
+    severity: 'high'
+  });
+  return true;
+}
+
 function resetListingForm() {
   ['#newTitle', '#newPrice', '#newLocation', '#newImage', '#newDesc', '#newBeds', '#newBaths'].forEach((selector) => {
     const field = $(selector);
@@ -420,15 +596,64 @@ function resetListingForm() {
 }
 
 function updateAuthUi() {
-  const trigger = $('#openLoginBtn');
-  if (!trigger) return;
+  const loginBtn = $('#openLoginBtn');
+  const userMenuBtn = $('#userMenuBtn');
+  const userMenu = $('#userMenu');
+  const agentPortalBtn = $('#agentPortalBtn');
+  const adminPortalBtn = $('#adminPortalBtn');
 
-  if (state.currentUser) {
-    trigger.innerHTML = '<i class="fa-solid fa-user-check"></i> Signed In';
-    trigger.title = state.currentUser.email || 'Signed in';
+  if (state.currentUser && state.userRole) {
+    // User is authenticated
+    if (loginBtn) {
+      loginBtn.style.display = 'none';
+    }
+    if (userMenuBtn) {
+      userMenuBtn.style.display = 'inline-flex';
+      const email = state.currentUser.email || state.userEmail || 'Account';
+      const userLabel = $('#userLabel');
+      if (userLabel) userLabel.textContent = email.split('@')[0];
+    }
+
+    // Show portal buttons based on role
+    if (state.userRole === 'agent' && agentPortalBtn) {
+      agentPortalBtn.style.display = 'inline-flex';
+    }
+    if (state.userRole === 'admin' && adminPortalBtn) {
+      adminPortalBtn.style.display = 'inline-flex';
+    }
+
+    // Update avatar and name in dashboard sidebar
+    if (state.userRole === 'agent') {
+      const avatar = $('#agentAvatarInitials');
+      const name = $('#agentDisplayName');
+      if (avatar) avatar.textContent = inferInitials(state.currentUser.email);
+      if (name) name.textContent = state.currentUser.email?.split('@')[0] || 'Agent';
+    }
   } else {
-    trigger.innerHTML = '<i class="fa-solid fa-user"></i> Sign In';
-    trigger.removeAttribute('title');
+    // User is not authenticated
+    if (loginBtn) {
+      loginBtn.style.display = 'inline-flex';
+    }
+    if (userMenuBtn) {
+      userMenuBtn.style.display = 'none';
+    }
+    if (userMenu) {
+      userMenu.style.display = 'none';
+    }
+    if (agentPortalBtn) {
+      agentPortalBtn.style.display = 'none';
+    }
+    if (adminPortalBtn) {
+      adminPortalBtn.style.display = 'none';
+    }
+  }
+}
+
+// Toggle user menu dropdown
+function toggleUserMenu() {
+  const userMenu = $('#userMenu');
+  if (userMenu) {
+    userMenu.style.display = userMenu.style.display === 'none' ? 'block' : 'none';
   }
 }
 
@@ -488,10 +713,12 @@ function renderProperties() {
     const searchFields = [property.title, property.location, property.type, property.agent, property.agency]
       .filter(Boolean)
       .map((value) => String(value).toLowerCase());
+
     const matchesSearch = !searchTerm || searchFields.some((value) => value.includes(searchTerm));
     const matchesType = state.type === 'all' || property.type === state.type;
     const matchesDeal = state.deal === 'all' || property.dealType === state.deal;
     const matchesTab = state.activeMarketTab === 'all' || property.dealType === state.activeMarketTab;
+
     return matchesSearch && matchesType && matchesDeal && matchesTab;
   });
 
@@ -507,34 +734,109 @@ function renderProperties() {
 }
 
 async function loadProperties() {
-  if (!api?.available || !api?.fetchProperties) return;
+  if (!api?.available || !api?.fetchProperties) {
+    renderProperties();
+    populateRemovalPropertySelect();
+    return;
+  }
 
   const { data, error } = await api.fetchProperties();
   if (error) {
     console.error(error);
     showToast('Using demo properties. Supabase could not load listings.', 'warning');
+    renderProperties();
+    populateRemovalPropertySelect();
     return;
   }
 
-  state.properties = Array.isArray(data) ? data.map(normalizePropertyRecord) : [];
+  state.properties = Array.isArray(data) ? data.map(normalizePropertyRecord) : state.properties;
   syncRemovalRequestPresentation();
   renderProperties();
   populateRemovalPropertySelect();
 }
 
 async function loadRemovalRequests() {
-  if (!api?.available || !api?.fetchRemovalRequests) return;
+  if (!api?.available || !api?.fetchRemovalRequests) {
+    renderAdminRemovalTable();
+    renderRemovalRequests();
+    return;
+  }
 
   const { data, error } = await api.fetchRemovalRequests();
   if (error) {
     console.error(error);
     showToast('Using demo approvals. Supabase could not load removal requests.', 'warning');
+    renderAdminRemovalTable();
+    renderRemovalRequests();
     return;
   }
 
-  state.removalRequests = Array.isArray(data) ? data.map((request) => normalizeRemovalRequest(request)) : [];
+  state.removalRequests = Array.isArray(data) ? data.map((request) => normalizeRemovalRequest(request)) : state.removalRequests;
   renderAdminRemovalTable();
   renderRemovalRequests();
+}
+
+async function loadDeals() {
+  if (!api?.available || !api?.fetchDeals) {
+    renderAgentDeals();
+    renderCommissions();
+    renderAllDeals();
+    return;
+  }
+
+  const { data, error } = await api.fetchDeals();
+  if (error) {
+    console.error(error);
+    showToast('Unable to load deals from Supabase. Using local deal data.', 'warning');
+    renderAgentDeals();
+    renderCommissions();
+    renderAllDeals();
+    return;
+  }
+
+  state.deals = Array.isArray(data) ? data.map(normalizeDealRecord) : state.deals;
+  renderAgentDeals();
+  renderCommissions();
+  renderAllDeals();
+}
+
+async function loadAgentVerifications() {
+  if (!api?.available || !api?.fetchAgentVerifications) {
+    syncAgentVerificationStatus();
+    renderAgentManagement();
+    return;
+  }
+
+  const { data, error } = await api.fetchAgentVerifications();
+  if (error) {
+    console.error(error);
+    renderAgentManagement();
+    return;
+  }
+
+  state.agentVerifications = Array.isArray(data) ? data.map(normalizeAgentVerification) : state.agentVerifications;
+  syncAgentVerificationStatus();
+  renderAgentManagement();
+  renderEscrowPanel();
+}
+
+async function loadRiskAlerts() {
+  if (!api?.available || !api?.fetchRiskAlerts) {
+    renderAuditLog(getActiveLogFilter());
+    return;
+  }
+
+  const { data, error } = await api.fetchRiskAlerts();
+  if (error) {
+    console.error(error);
+    renderAuditLog(getActiveLogFilter());
+    return;
+  }
+
+  state.riskAlerts = Array.isArray(data) ? data.map(normalizeRiskAlert) : state.riskAlerts;
+  if (state.riskAlerts.length) {
+    state.riskAlerts.forEach((alert) => addAuditLog('circumvention', 'SYSTEM', `${alert.reason} for ${alert.property}.`));
+  }
 }
 
 function renderAgentListings() {
@@ -556,19 +858,132 @@ function renderAgentListings() {
   `).join('');
 }
 
+function renderAgentDeals() {
+  const tbody = document.querySelector('#agent-deals table.data-table tbody');
+  if (!tbody) return;
+
+  tbody.innerHTML = state.deals.map((deal) => {
+    const stageLabel = deal.escrowStage ? `<span class="deal-stage">${deal.escrowStage}</span>` : '';
+    const statusClassName = statusClass(deal.status);
+    return `
+      <tr>
+        <td>${deal.id}</td>
+        <td>${deal.property}</td>
+        <td>${deal.buyer}</td>
+        <td><span class="status-badge ${statusClassName}"><i class="fa-solid fa-handshake"></i> ${deal.status}</span></td>
+        <td>${deal.fee}</td>
+        <td>${stageLabel} <button class="btn btn-secondary btn-sm" data-toast="Deal stage refreshed.">Refresh</button></td>
+      </tr>
+    `;
+  }).join('');
+}
+
 function renderCommissions() {
   const tbody = $('#commissionsTable');
   if (!tbody) return;
 
   tbody.innerHTML = state.deals.map((deal) => {
-    const statusClass =
-      deal.status === 'Completed' ? 'active' :
-      deal.status === 'Payment pending' ? 'pending' :
-      deal.status === 'Contract signed' ? 'sold' :
-      'alert';
-
-    return `<tr><td>${deal.id}</td><td>${deal.amount}</td><td>${deal.fee}</td><td><span class="status-badge ${statusClass}"><i class="fa-solid fa-coins"></i> ${deal.status}</span></td></tr>`;
+    const statusClassName = statusClass(deal.status);
+    return `
+      <tr>
+        <td>${deal.id}</td>
+        <td>${deal.amount}</td>
+        <td>${deal.fee}</td>
+        <td><span class="status-badge ${statusClassName}"><i class="fa-solid fa-coins"></i> ${deal.status}</span></td>
+      </tr>
+    `;
   }).join('');
+}
+
+function renderEscrowPanel() {
+  const milestonesBody = $('#escrowMilestonesTable');
+  if (milestonesBody) {
+    milestonesBody.innerHTML = state.escrowMilestones.length
+      ? state.escrowMilestones.map((item) => `
+          <tr>
+            <td>${item.property}</td>
+            <td>${item.step}</td>
+            <td><span class="status-badge ${statusClass(item.status)}"><i class="fa-solid fa-flag"></i> ${item.status}</span></td>
+          </tr>
+        `).join('')
+      : `
+          <tr>
+            <td colspan="3" class="empty-state">No escrow milestones available.</td>
+          </tr>
+        `;
+  }
+
+  const verificationContainer = $('#verificationRequestsList');
+  if (verificationContainer) {
+    verificationContainer.innerHTML = state.agentVerifications.length
+      ? state.agentVerifications.map((item) => `
+          <div class="audit-item" style="margin-bottom:12px;">
+            <div style="display:flex; justify-content:space-between; gap:12px; align-items:flex-start; flex-wrap:wrap;">
+              <div style="min-width:280px;">
+                <strong>${item.agent}</strong>
+                <div style="color:var(--muted); margin-top:6px;">${item.note || 'No note submitted.'}</div>
+              </div>
+              <span class="status-badge ${item.status === 'Verified' ? 'active' : item.status === 'Pending verification' ? 'pending' : 'alert'}"><i class="fa-solid fa-user-check"></i> ${item.status}</span>
+            </div>
+            <div style="margin-top:10px; color:var(--muted); font-size:.88rem;">Submitted: ${item.submitted}</div>
+          </div>
+        `).join('')
+      : `
+          <div class="empty-state">
+            <i class="fa-solid fa-user-clock"></i>
+            <h3>No verification requests</h3>
+            <p>Submit a request to get certified on the platform.</p>
+          </div>
+        `;
+  }
+}
+
+function toggleVerificationForm(show) {
+  const form = $('#verificationRequestForm');
+  if (!form) return;
+  form.style.display = show ? 'block' : 'none';
+}
+
+async function submitVerificationRequest() {
+  const notes = $('#verificationNotes')?.value.trim();
+  if (!notes) {
+    showToast('Add details for the verification request.', 'error');
+    return;
+  }
+
+  await restoreCurrentUser();
+  if (!state.currentUser) {
+    showToast('Sign in before requesting verification.', 'warning');
+    openModal('loginModal');
+    return;
+  }
+
+  const payload = {
+    agent_id: state.currentUser.id,
+    agent_name: state.currentUser.email || DEFAULT_AGENT.name,
+    status: 'pending_verification',
+    note: notes,
+    submitted_at: new Date().toISOString()
+  };
+
+  let createdRequest = normalizeAgentVerification(payload);
+  if (api?.available && api?.createAgentVerification) {
+    const { data, error } = await api.createAgentVerification(payload);
+    if (error) {
+      console.error(error);
+      showToast(error.message || 'Failed to submit the verification request.', 'error');
+      return;
+    }
+    createdRequest = normalizeAgentVerification(data?.[0] || payload);
+  }
+
+  state.agentVerifications.unshift(createdRequest);
+  syncAgentVerificationStatus();
+  renderAgentManagement();
+  renderEscrowPanel();
+  toggleVerificationForm(false);
+  if ($('#verificationNotes')) $('#verificationNotes').value = '';
+  showToast('Verification request submitted.', 'success');
 }
 
 function renderAdminRemovalTable() {
@@ -589,7 +1004,7 @@ function renderAdminRemovalTable() {
       <td>
         ${isPendingRemovalRequest(request)
           ? `<button class="btn btn-success btn-sm" data-approve-removal="${request.id}"><i class="fa-solid fa-check"></i></button>
-        <button class="btn btn-danger btn-sm" data-reject-removal="${request.id}"><i class="fa-solid fa-xmark"></i></button>`
+             <button class="btn btn-danger btn-sm" data-reject-removal="${request.id}"><i class="fa-solid fa-xmark"></i></button>`
           : '<span style="color:var(--muted); font-size:.88rem;">Reviewed</span>'}
       </td>
     </tr>
@@ -606,33 +1021,31 @@ function renderRemovalRequests() {
     .filter((request) => isPendingRemovalRequest(request))
     .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
 
-  container.innerHTML = pendingRequests.map((request) => `
-    <div class="glass-card" style="padding:16px; margin-bottom:12px;">
-      <div style="display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap;">
-        <div>
-          <div style="font-weight:800; margin-bottom:4px;">${request.property}</div>
-          <div style="color:var(--muted); font-size:.92rem">Requested by <strong>${request.agent}</strong> - ${request.submitted}</div>
+  container.innerHTML = pendingRequests.length
+    ? pendingRequests.map((request) => `
+      <div class="glass-card" style="padding:16px; margin-bottom:12px;">
+        <div style="display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+          <div>
+            <div style="font-weight:800; margin-bottom:4px;">${request.property}</div>
+            <div style="color:var(--muted); font-size:.92rem">Requested by <strong>${request.agent}</strong> - ${request.submitted}</div>
+          </div>
+          <span class="status-badge ${removalStatusClass(request.status)}"><i class="fa-solid fa-clock"></i> ${request.status}</span>
         </div>
-        <span class="status-badge ${removalStatusClass(request.status)}"><i class="fa-solid fa-clock"></i> ${request.status}</span>
+        <div class="mini-divider"></div>
+        <div style="color:#cbd5e1">${request.reason}</div>
+        <div class="modal-actions" style="margin-top:14px; justify-content:flex-start;">
+          <button class="btn btn-success btn-sm" data-approve-removal="${request.id}"><i class="fa-solid fa-check"></i> Approve</button>
+          <button class="btn btn-danger btn-sm" data-reject-removal="${request.id}"><i class="fa-solid fa-ban"></i> Reject</button>
+        </div>
       </div>
-      <div class="mini-divider"></div>
-      <div style="color:#cbd5e1">${request.reason}</div>
-      <div class="modal-actions" style="margin-top:14px; justify-content:flex-start;">
-        <button class="btn btn-success btn-sm" data-approve-removal="${request.id}"><i class="fa-solid fa-check"></i> Approve</button>
-        <button class="btn btn-danger btn-sm" data-reject-removal="${request.id}"><i class="fa-solid fa-ban"></i> Reject</button>
-      </div>
-    </div>
-  `).join('');
-
-  if (!pendingRequests.length) {
-    container.innerHTML = `
+    `).join('')
+    : `
       <div class="empty-state">
         <i class="fa-solid fa-folder-open"></i>
         <h3>Nothing waiting</h3>
         <p>No removal requests right now.</p>
       </div>
     `;
-  }
 
   updateRemovalRequestBadge();
 }
@@ -647,7 +1060,7 @@ function renderAgentManagement() {
       <td>${agent.listings}</td>
       <td>${agent.deals}</td>
       <td>${agent.trust}%</td>
-      <td><span class="status-badge ${agent.status === 'Verified' ? 'active' : 'pending'}"><i class="fa-solid fa-user-check"></i> ${agent.status}</span></td>
+      <td><span class="status-badge ${agent.status === 'Verified' ? 'active' : agent.status === 'Review clear' ? 'pending' : 'alert'}"><i class="fa-solid fa-user-check"></i> ${agent.status}</span></td>
     </tr>
   `).join('');
 }
@@ -656,16 +1069,20 @@ function renderAllDeals() {
   const tbody = $('#allDealsTable');
   if (!tbody) return;
 
-  tbody.innerHTML = state.deals.map((deal) => `
-    <tr>
-      <td>${deal.id}</td>
-      <td>${deal.property}</td>
-      <td>${deal.buyer || '-'}</td>
-      <td>${deal.amount}</td>
-      <td>${deal.fee}</td>
-      <td><span class="status-badge ${deal.status === 'Completed' ? 'active' : deal.status === 'Negotiation' ? 'pending' : deal.status === 'Payment pending' ? 'alert' : 'sold'}"><i class="fa-solid fa-handshake"></i> ${deal.status}</span></td>
-    </tr>
-  `).join('');
+  tbody.innerHTML = state.deals.map((deal) => {
+    const stage = deal.escrowStage ? `Escrow: ${deal.escrowStage}` : '';
+    const statusClassName = statusClass(deal.status);
+    return `
+      <tr>
+        <td>${deal.id}</td>
+        <td>${deal.property}</td>
+        <td>${deal.buyer || '-'}</td>
+        <td>${deal.amount}</td>
+        <td>${deal.fee}</td>
+        <td><span class="status-badge ${statusClassName}"><i class="fa-solid fa-handshake"></i> ${deal.status}</span> ${stage}</td>
+      </tr>
+    `;
+  }).join('');
 }
 
 function renderAuditLog(filter = 'all') {
@@ -673,22 +1090,20 @@ function renderAuditLog(filter = 'all') {
   if (!container) return;
 
   const logs = filter === 'all' ? state.logs : state.logs.filter((log) => log.type === filter);
-  container.innerHTML = logs.map((log) => `
-    <div class="audit-item">
-      <div class="audit-time">${log.time}</div>
-      <div class="audit-content"><span class="audit-user">${log.user}:</span> ${log.content}</div>
-    </div>
-  `).join('');
-
-  if (!logs.length) {
-    container.innerHTML = `
+  container.innerHTML = logs.length
+    ? logs.map((log) => `
+      <div class="audit-item">
+        <div class="audit-time">${log.time}</div>
+        <div class="audit-content"><span class="audit-user">${log.user}:</span> ${log.content}</div>
+      </div>
+    `).join('')
+    : `
       <div class="empty-state">
         <i class="fa-solid fa-magnifying-glass"></i>
         <h3>No logs here</h3>
         <p>That filter has nothing on it.</p>
       </div>
     `;
-  }
 }
 
 function renderInquiries() {
@@ -745,13 +1160,69 @@ async function handleSignIn() {
     return;
   }
 
-  state.currentUser = data?.user || null;
+  state.currentUser = data?.user || data?.session?.user || null;
+  state.userRole = state.loginRole; // Set role based on what user selected
+  state.userEmail = email;
+  
+  // Persist to localStorage for session restore
+  localStorage.setItem('propertyflow_session', JSON.stringify({
+    user: state.currentUser,
+    role: state.userRole,
+    email: state.userEmail,
+    timestamp: Date.now()
+  }));
+  
   updateAuthUi();
   await loadRemovalRequests();
   closeModal('loginModal');
   if ($('#loginEmail')) $('#loginEmail').value = '';
   if ($('#loginPassword')) $('#loginPassword').value = '';
-  showToast('Signed in successfully.', 'success');
+  showToast(`Signed in as ${state.userRole === 'agent' ? 'Agent' : 'Admin'}.`, 'success');
+  
+  // Auto-navigate to appropriate portal
+  setTimeout(() => {
+    navigateToView(state.userRole === 'agent' ? 'agent' : 'admin');
+  }, 500);
+}
+
+async function handleLogout() {
+  if (api?.available && api?.signOut) {
+    const { error } = await api.signOut();
+    if (error) {
+      console.error(error);
+    }
+  }
+
+  state.currentUser = null;
+  state.userRole = null;
+  state.userEmail = null;
+  
+  // Clear persisted session
+  localStorage.removeItem('propertyflow_session');
+  
+  updateAuthUi();
+  navigateToView('marketplace');
+  showToast('Signed out successfully.', 'success');
+}
+
+async function handleSignOut() {
+  if (!api?.available || !api?.signOut) {
+    state.currentUser = null;
+    updateAuthUi();
+    showToast('Signed out locally.', 'success');
+    return;
+  }
+
+  const { error } = await api.signOut();
+  if (error) {
+    console.error(error);
+    showToast(error.message || 'Sign out failed.', 'error');
+    return;
+  }
+
+  state.currentUser = null;
+  updateAuthUi();
+  showToast('Signed out successfully.', 'success');
 }
 
 async function saveNewListing() {
@@ -770,11 +1241,6 @@ async function saveNewListing() {
     return;
   }
 
-  if (!api?.available || !api?.createProperty) {
-    showToast('Supabase browser tools failed to load. Check the local script paths.', 'error');
-    return;
-  }
-
   await restoreCurrentUser();
   if (!state.currentUser) {
     showToast('Sign in before publishing a listing.', 'warning');
@@ -782,11 +1248,10 @@ async function saveNewListing() {
     return;
   }
 
-  const saveButton = $('#saveListingBtn');
-  if (saveButton) saveButton.disabled = true;
-
   const payload = {
     agent_id: state.currentUser.id,
+    agent_name: state.currentUser.email || DEFAULT_AGENT.name,
+    agency: DEFAULT_AGENT.agency,
     title,
     description,
     price: parsePriceValue(price) ?? price,
@@ -795,23 +1260,34 @@ async function saveNewListing() {
     location,
     bedrooms: beds,
     bathrooms: baths,
-    image_url: image
+    image_url: image,
+    commission_rate: COMMISSION_RATE,
+    protection_policy: 'Platform enforced',
+    status: 'Pending review',
+    created_at: new Date().toISOString()
   };
 
-  const { data, error } = await api.createProperty(payload);
+  const saveButton = $('#saveListingBtn');
+  if (saveButton) saveButton.disabled = true;
 
-  if (saveButton) saveButton.disabled = false;
-
-  if (error) {
-    console.error(error);
-    showToast(error.message || 'Failed to save listing.', 'error');
-    return;
+  let createdProperty = null;
+  if (api?.available && api?.createProperty) {
+    const { data, error } = await api.createProperty(payload);
+    if (saveButton) saveButton.disabled = false;
+    if (error) {
+      console.error(error);
+      showToast(error.message || 'Failed to save listing.', 'error');
+      return;
+    }
+    createdProperty = normalizePropertyRecord(data?.[0] || payload);
+  } else {
+    if (saveButton) saveButton.disabled = false;
+    createdProperty = normalizePropertyRecord(payload);
+    showToast('Saved listing locally because backend is unavailable.', 'warning');
   }
 
-  const createdProperty = normalizePropertyRecord(data?.[0] || payload);
   state.properties.unshift(createdProperty);
   state.listings.unshift(buildListing(createdProperty));
-
   renderProperties();
   renderAgentListings();
   populateRemovalPropertySelect();
@@ -849,11 +1325,6 @@ async function submitRemovalRequest() {
     return;
   }
 
-  if (!api?.available || !api?.createRemovalRequest) {
-    showToast('Supabase browser tools failed to load. Check the local script paths.', 'error');
-    return;
-  }
-
   await restoreCurrentUser();
   if (!state.currentUser) {
     showToast('Sign in before submitting a removal request.', 'warning');
@@ -861,29 +1332,40 @@ async function submitRemovalRequest() {
     return;
   }
 
-  const { data, error } = await api.createRemovalRequest({
+  const requestPayload = {
     agent_id: state.currentUser.id,
     property_id: property.id,
-    reason,
-    status: 'pending_review'
-  });
-
-  if (error) {
-    console.error(error);
-    showToast(error.message || 'Failed to submit the removal request.', 'error');
-    return;
-  }
-
-  const createdRequest = normalizeRemovalRequest({
-    ...(data?.[0] || {}),
-    agent_id: state.currentUser.id,
-    property_id: property.id,
-    property: property.title,
-    agent: property.agent,
     reason,
     status: 'pending_review',
-    created_at: data?.[0]?.created_at || new Date().toISOString()
-  });
+    created_at: new Date().toISOString()
+  };
+
+  let createdRequest = null;
+  if (api?.available && api?.createRemovalRequest) {
+    const { data, error } = await api.createRemovalRequest(requestPayload);
+    if (error) {
+      console.error(error);
+      showToast(error.message || 'Failed to submit the removal request.', 'error');
+      return;
+    }
+    createdRequest = normalizeRemovalRequest({
+      ...(data?.[0] || requestPayload),
+      property: property.title,
+      agent: state.currentUser.email || property.agent,
+      reason,
+      status: 'pending_review'
+    });
+  } else {
+    createdRequest = normalizeRemovalRequest({
+      ...requestPayload,
+      id: `local-${Date.now()}`,
+      property: property.title,
+      agent: state.currentUser.email || property.agent,
+      reason,
+      status: 'pending_review'
+    });
+    showToast('Removal request queued locally.', 'warning');
+  }
 
   state.removalRequests.unshift(createdRequest);
   renderRemovalRequests();
@@ -891,7 +1373,7 @@ async function submitRemovalRequest() {
   closeModal('removalRequestModal');
   if ($('#removalReason')) $('#removalReason').value = '';
   addAuditLog('alerts', 'AGENT', `Removal request submitted for ${property.title}.`);
-  showToast('Removal request submitted for admin review.', 'success');
+  detectCircumvention(reason, property.title, state.currentUser.email || property.agent);
 
   const page = document.body.dataset.page;
   if (page === 'admin') {
@@ -905,11 +1387,6 @@ async function approveRemoval(requestId) {
   const request = state.removalRequests.find((item) => String(item.id) === String(requestId));
   if (!request) return;
 
-  if (!api?.available || !api?.updateRemovalRequest || !api?.updateProperty) {
-    showToast('Supabase browser tools failed to load. Check the local script paths.', 'error');
-    return;
-  }
-
   await restoreCurrentUser();
   if (!state.currentUser) {
     showToast('Sign in before reviewing removal requests.', 'warning');
@@ -917,29 +1394,35 @@ async function approveRemoval(requestId) {
     return;
   }
 
-  const reviewedAt = new Date().toISOString();
-  const { error: requestError } = await api.updateRemovalRequest(request.id, {
-    status: 'approved',
-    reviewed_at: reviewedAt,
-    reviewed_by: state.currentUser.id
-  });
+  if (api?.available && api?.updateRemovalRequest && api?.updateProperty) {
+    const { error: requestError } = await api.updateRemovalRequest(request.id, {
+      status: 'approved',
+      reviewed_at: new Date().toISOString(),
+      reviewed_by: state.currentUser.id
+    });
 
-  if (requestError) {
-    console.error(requestError);
-    showToast(requestError.message || 'Failed to approve the removal request.', 'error');
-    return;
+    if (requestError) {
+      console.error(requestError);
+      showToast(requestError.message || 'Failed to approve the removal request.', 'error');
+      return;
+    }
+
+    const { error: propertyError } = await api.updateProperty(request.propertyId, {
+      status: 'Removed'
+    });
+
+    if (propertyError) {
+      console.error(propertyError);
+      showToast(propertyError.message || 'Request approved, but the property could not be hidden yet.', 'warning');
+    }
   }
 
-  const { error: propertyError } = await api.updateProperty(request.propertyId, {
-    status: 'Removed'
-  });
+  request.status = 'Approved';
+  request.reviewedAt = new Date().toISOString();
+  request.reviewedBy = state.currentUser.id;
 
-  if (propertyError) {
-    console.error(propertyError);
-    await loadRemovalRequests();
-    showToast(propertyError.message || 'Request approved, but the property could not be hidden yet.', 'warning');
-    return;
-  }
+  const property = findPropertyByTitle(request.property);
+  if (property) property.status = 'Removed';
 
   addAuditLog('alerts', 'ADMIN', `Removal approved for ${request.property}. Reason accepted: ${request.reason}`);
   await loadProperties();
@@ -952,11 +1435,6 @@ async function rejectRemoval(requestId) {
   const request = state.removalRequests.find((item) => String(item.id) === String(requestId));
   if (!request) return;
 
-  if (!api?.available || !api?.updateRemovalRequest) {
-    showToast('Supabase browser tools failed to load. Check the local script paths.', 'error');
-    return;
-  }
-
   await restoreCurrentUser();
   if (!state.currentUser) {
     showToast('Sign in before reviewing removal requests.', 'warning');
@@ -964,17 +1442,23 @@ async function rejectRemoval(requestId) {
     return;
   }
 
-  const { error } = await api.updateRemovalRequest(request.id, {
-    status: 'rejected',
-    reviewed_at: new Date().toISOString(),
-    reviewed_by: state.currentUser.id
-  });
+  if (api?.available && api?.updateRemovalRequest) {
+    const { error } = await api.updateRemovalRequest(request.id, {
+      status: 'rejected',
+      reviewed_at: new Date().toISOString(),
+      reviewed_by: state.currentUser.id
+    });
 
-  if (error) {
-    console.error(error);
-    showToast(error.message || 'Failed to reject the removal request.', 'error');
-    return;
+    if (error) {
+      console.error(error);
+      showToast(error.message || 'Failed to reject the removal request.', 'error');
+      return;
+    }
   }
+
+  request.status = 'Rejected';
+  request.reviewedAt = new Date().toISOString();
+  request.reviewedBy = state.currentUser.id;
 
   addAuditLog('alerts', 'ADMIN', `Removal rejected for ${request.property}. Review flagged.`);
   await loadRemovalRequests();
@@ -993,13 +1477,21 @@ function bindEvents() {
     });
   });
 
-  $('#openLoginBtn')?.addEventListener('click', () => openModal('loginModal'));
+  $('#openLoginBtn')?.addEventListener('click', () => {
+    if (state.currentUser) {
+      void handleLogout();
+    } else {
+      setLoginRole('agent'); // default to agent
+      openModal('loginModal');
+    }
+  });
+
   $('#openAddListingBtn')?.addEventListener('click', () => openModal('addListingModal'));
   $('#openRemovalBtn')?.addEventListener('click', () => {
     populateRemovalPropertySelect();
     openModal('removalRequestModal');
   });
-  $('#signInBtn')?.addEventListener('click', handleSignIn);
+  $('#signInBtn')?.addEventListener('click', () => void handleSignIn());
 
   $$('.modal-overlay').forEach((overlay) => {
     overlay.addEventListener('click', (event) => {
@@ -1091,6 +1583,15 @@ function bindEvents() {
   $('#submitRemovalBtn')?.addEventListener('click', () => {
     void submitRemovalRequest();
   });
+  $('#openVerificationRequestBtn')?.addEventListener('click', () => {
+    toggleVerificationForm(true);
+  });
+  $('#cancelVerificationBtn')?.addEventListener('click', () => {
+    toggleVerificationForm(false);
+  });
+  $('#submitVerificationBtn')?.addEventListener('click', () => {
+    void submitVerificationRequest();
+  });
 
   $('#searchInput')?.addEventListener('keydown', (event) => {
     if (event.key === 'Enter') renderProperties();
@@ -1104,32 +1605,159 @@ function bindEvents() {
   });
 }
 
+// Admin dashboard render functions
+function renderAdminActivityLog() {
+  const container = $('#adminActivityLog');
+  if (!container) return;
+  
+  const recentLogs = state.logs.slice(0, 6);
+  container.innerHTML = recentLogs.length
+    ? recentLogs.map((log) => `
+      <div class="audit-item">
+        <div class="audit-time">${log.time}</div>
+        <div class="audit-content">
+          <span class="audit-user" style="color: ${log.type === 'alerts' ? '#fca5a5' : log.type === 'commission' ? '#86efac' : '#fbbf24'}">${log.user}</span>
+          ${log.content}
+        </div>
+      </div>
+    `).join('')
+    : '<p style="color: var(--muted); text-align: center; padding: 20px;">No recent activity</p>';
+}
+
+function renderAdminDealsTable() {
+  const tbody = $('#adminDealsTable');
+  if (!tbody) return;
+
+  tbody.innerHTML = state.deals.map((deal) => {
+    const riskLevel = deal.status === 'Negotiation' ? 'warning' : deal.status === 'Payment pending' ? 'danger' : 'success';
+    return `
+      <tr>
+        <td>${deal.id}</td>
+        <td>${deal.property}</td>
+        <td>${deal.amount}</td>
+        <td>${deal.fee}</td>
+        <td><span class="status-badge ${statusClass(deal.status)}"><i class="fa-solid fa-handshake"></i> ${deal.status}</span></td>
+        <td><span class="status-badge ${riskLevel}" style="width: fit-content;"><i class="fa-solid fa-triangle-exclamation"></i> ${riskLevel === 'danger' ? 'High' : riskLevel === 'warning' ? 'Medium' : 'Low'}</span></td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function renderAdminCommissionsTable() {
+  const tbody = $('#adminCommissionsTable');
+  if (!tbody) return;
+
+  const agentCommissions = {};
+  state.deals.forEach(deal => {
+    const property = state.properties.find(p => p.title === deal.property);
+    const agentName = property?.agent || 'Unknown';
+    if (!agentCommissions[agentName]) {
+      agentCommissions[agentName] = { completed: 0, totalFee: 0 };
+    }
+    if (deal.status === 'Completed') {
+      agentCommissions[agentName].completed += 1;
+      agentCommissions[agentName].totalFee += (deal.amountValue || 0) * COMMISSION_RATE;
+    }
+  });
+
+  tbody.innerHTML = Object.entries(agentCommissions).map(([agent, data]) => `
+    <tr>
+      <td>${agent}</td>
+      <td>${data.completed}</td>
+      <td>${currencyFormatter.format(data.totalFee)}</td>
+      <td><span class="status-badge active"><i class="fa-solid fa-check"></i> Paid</span></td>
+    </tr>
+  `).join('') || '<tr><td colspan="4" style="text-align: center; color: var(--muted);">No commission data</td></tr>';
+}
+
+function renderAdminEscrowTable() {
+  const tbody = $('#adminEscrowTable');
+  if (!tbody) return;
+
+  tbody.innerHTML = state.escrowMilestones.map((milestone) => `
+    <tr>
+      <td>${milestone.property}</td>
+      <td>${milestone.step}</td>
+      <td>${currencyFormatter.format(123456)}</td>
+      <td>${milestone.status === 'Completed' ? 'Ready' : 'In Progress'}</td>
+    </tr>
+  `).join('');
+}
+
 async function initCommon() {
   renderProperties();
   renderAgentListings();
   renderCommissions();
+  renderEscrowPanel();
   renderAdminRemovalTable();
   renderRemovalRequests();
   renderAgentManagement();
   renderAllDeals();
   renderAuditLog('all');
   renderInquiries();
+  renderAdminActivityLog();
+  renderAdminDealsTable();
+  renderAdminCommissionsTable();
+  renderAdminEscrowTable();
   populateRemovalPropertySelect();
   bindEvents();
+  
+  // Add event listeners for new UI elements
+  $('#userMenuBtn')?.addEventListener('click', toggleUserMenu);
+  
+  // Close user menu when clicking elsewhere
+  document.addEventListener('click', (event) => {
+    const userMenuBtn = $('#userMenuBtn');
+    const userMenu = $('#userMenu');
+    if (userMenuBtn && userMenu && !userMenuBtn.contains(event.target) && !userMenu.contains(event.target)) {
+      userMenu.style.display = 'none';
+    }
+  });
+  
   updateAuthUi();
   await restoreCurrentUser();
-  await loadProperties();
-  await loadRemovalRequests();
+  await Promise.all([
+    loadProperties(),
+    loadRemovalRequests(),
+    loadDeals(),
+    loadAgentVerifications(),
+    loadRiskAlerts()
+  ]);
+}
+
+function restoreSessionFromStorage() {
+  const session = localStorage.getItem('propertyflow_session');
+  if (session) {
+    try {
+      const data = JSON.parse(session);
+      // Check if session is not too old (24 hours)
+      if (Date.now() - data.timestamp < 86400000) {
+        state.currentUser = data.user;
+        state.userRole = data.role;
+        state.userEmail = data.email;
+        return true;
+      }
+    } catch (e) {
+      console.error('Failed to restore session:', e);
+    }
+    localStorage.removeItem('propertyflow_session');
+  }
+  return false;
 }
 
 async function initApp() {
+  // Try to restore session first
+  const hasSession = restoreSessionFromStorage();
+  
   await initCommon();
 
-  const page = document.body.dataset.page;
-  if (page === 'agent') {
-    showAgentTab('overview');
-  } else if (page === 'admin') {
-    showAdminTab('admin-overview');
+  // Navigate to appropriate view
+  if (hasSession && state.userRole) {
+    setTimeout(() => {
+      navigateToView(state.userRole === 'agent' ? 'agent' : 'admin');
+    }, 100);
+  } else {
+    navigateToView('marketplace');
   }
 }
 
