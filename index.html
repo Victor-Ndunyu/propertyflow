@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>PropertyFlow - Premium Real Estate Platform</title>
+  <title>Property Flow - Real Estate Platform</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:wght@600;700;800&display=swap" rel="stylesheet">
@@ -17,12 +17,15 @@
     <div class="orb three"></div>
   </div>
 
+  <div id="appModeBanner" class="app-mode-banner info">Loading Property Flow mode...</div>
+
   <nav class="navbar">
-    <a class="brand" href="javascript:void(0)" onclick="navigateToView('marketplace')"><div class="brand-mark"><i class="fa-solid fa-building"></i></div>PropertyFlow</a>
+    <a class="brand" href="javascript:void(0)" onclick="navigateToView('marketplace')"><div class="brand-mark"><i class="fa-solid fa-building"></i></div>Property Flow</a>
     <div class="nav-links">
       <a href="javascript:void(0)" onclick="navigateToView('marketplace')" class="nav-link active" data-nav="marketplace">Browse</a>
       <button class="btn btn-secondary btn-sm" id="agentPortalBtn" style="display: none;" onclick="navigateToView('agent')"><i class="fa-solid fa-briefcase"></i> Agent Portal</button>
       <button class="btn btn-secondary btn-sm" id="adminPortalBtn" style="display: none;" onclick="navigateToView('admin')"><i class="fa-solid fa-shield-halved"></i> Admin</button>
+      <button class="btn btn-outline btn-sm" id="openSignupBtn" style="display: none;"><i class="fa-solid fa-user-plus"></i> Sign Up</button>
       <button class="btn btn-primary" id="openLoginBtn"><i class="fa-solid fa-user"></i> Sign In</button>
       <button class="btn btn-secondary btn-sm" id="userMenuBtn" style="display: none;"><span id="userLabel">Account</span> <i class="fa-solid fa-chevron-down"></i></button>
       <div class="user-menu" id="userMenu" style="display: none;">
@@ -35,57 +38,251 @@
 
   <div class="container">
     <section class="view page-view active" id="marketplace">
-      <div class="hero">
-        <div class="eyebrow"><i class="fa-solid fa-shield-halved"></i> Transparent real estate with deal protection built in</div>
-        <h1>Discover your perfect property</h1>
-        <p>Agents list homes for rent or sale. Buyers and tenants connect directly through the platform, while every successful deal is tracked and charged a small commission to keep the marketplace sustainable and protected.</p>
-        <div class="trust-badges">
-          <div class="trust-badge"><i class="fa-solid fa-shield-heart"></i> Deal protection guaranteed</div>
-          <div class="trust-badge"><i class="fa-solid fa-lock"></i> Secure communication</div>
-          <div class="trust-badge"><i class="fa-solid fa-circle-check"></i> Verified agents only</div>
-          <div class="trust-badge"><i class="fa-solid fa-percent"></i> 2% platform fee</div>
+      <section class="homepage-hero">
+        <div class="homepage-hero-copy">
+          <div class="eyebrow"><i class="fa-solid fa-building-shield"></i> Property marketplace, listing portal, and approval workflow</div>
+          <h1>Property Flow</h1>
+          <p class="homepage-kicker">One platform for property discovery, listing management, and role-based moderation.</p>
+          <p class="homepage-support">Property Flow helps buyers explore listings with clarity, agents manage their portfolio with confidence, and administrators keep approvals, updates, and platform activity organized and trustworthy.</p>
+          <div class="homepage-actions">
+            <button class="btn btn-primary" type="button" onclick="document.getElementById('searchSection').scrollIntoView({ behavior: 'smooth', block: 'start' })"><i class="fa-solid fa-magnifying-glass"></i> Explore Listings</button>
+            <button class="btn btn-secondary" type="button" onclick="setAuthMode(false); openModal('loginModal')"><i class="fa-solid fa-right-to-bracket"></i> Sign In</button>
+          </div>
+          <div class="homepage-inline-points">
+            <span><i class="fa-solid fa-circle-check"></i> Verified listings</span>
+            <span><i class="fa-solid fa-user-shield"></i> Role-based access</span>
+            <span><i class="fa-solid fa-diagram-project"></i> Structured review workflows</span>
+          </div>
         </div>
-      </div>
+        <div class="homepage-hero-visual">
+          <div class="hero-visual-shell glass-card">
+            <div class="hero-property-card">
+              <div class="hero-property-media">
+                <img src="https://images.unsplash.com/photo-1600585154526-990dced4db0d?auto=format&fit=crop&w=1200&q=80" alt="Modern residential property exterior" />
+              </div>
+              <div class="hero-property-content">
+                <div class="hero-property-meta">
+                  <span class="hero-property-status">Verified listing</span>
+                  <span class="hero-property-role">Agent managed</span>
+                </div>
+                <h2>Professional property operations, from discovery to approval.</h2>
+                <p>Buyers browse with confidence, agents publish with structure, and administrators review important actions with a clear audit path.</p>
+              </div>
+            </div>
+            <div class="hero-metrics">
+              <div class="hero-metric">
+                <strong>Listings</strong>
+                <span>Searchable property inventory with filters for type, deal, and location.</span>
+              </div>
+              <div class="hero-metric">
+                <strong>Portals</strong>
+                <span>Separate experiences for buyers, agents, and administrators.</span>
+              </div>
+              <div class="hero-metric">
+                <strong>Controls</strong>
+                <span>Moderated removal requests, secure login, and Supabase-backed persistence.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
 
-      <div class="search-section">
-        <div class="search-box glass-card">
-          <input id="searchInput" class="field" type="text" placeholder="Search by location, property type, or keyword..." />
-          <select id="typeFilter" class="select">
-            <option value="all">All Types</option>
-            <option value="Apartment">Apartment</option>
-            <option value="House">House</option>
-            <option value="Villa">Villa</option>
-            <option value="Commercial">Commercial</option>
-          </select>
-          <select id="dealFilter" class="select">
-            <option value="all">Any Deal</option>
-            <option value="Sale">For Sale</option>
-            <option value="Rent">For Rent</option>
-          </select>
-          <button class="btn btn-primary" id="searchBtn"><i class="fa-solid fa-magnifying-glass"></i> Search</button>
+      <section class="homepage-section trust-section">
+        <div class="section-heading-block">
+          <span class="section-label">Why teams trust Property Flow</span>
+          <h2>Built for a more credible property workflow</h2>
+          <p>Property Flow brings structure to property discovery and platform operations, with clear responsibilities for buyers, agents, and administrators.</p>
         </div>
-      </div>
+        <div class="trust-grid">
+          <article class="trust-card glass-card">
+            <i class="fa-solid fa-badge-check"></i>
+            <h3>Verified listings</h3>
+            <p>Properties are presented in a controlled marketplace designed to highlight credible listings and keep information organized.</p>
+          </article>
+          <article class="trust-card glass-card">
+            <i class="fa-solid fa-user-lock"></i>
+            <h3>Role-based access</h3>
+            <p>Buyers explore, agents manage listings, and administrators handle moderation through role-aware access and account permissions.</p>
+          </article>
+          <article class="trust-card glass-card">
+            <i class="fa-solid fa-folder-tree"></i>
+            <h3>Clear moderation workflow</h3>
+            <p>Removal requests and platform-sensitive actions follow a structured review path instead of informal back-and-forth.</p>
+          </article>
+          <article class="trust-card glass-card">
+            <i class="fa-solid fa-comments"></i>
+            <h3>Organized communication</h3>
+            <p>Property activity is easier to manage when buyers, agents, and admins work from the same shared platform context.</p>
+          </article>
+        </div>
+      </section>
 
-      <div class="section-head">
-        <div>
-          <h2 class="section-title">Featured properties</h2>
-          <p class="section-sub">Premium listings with verified agents and transparent deal flow.</p>
+      <section class="homepage-section" id="searchSection">
+        <div class="section-heading-inline">
+          <div>
+            <span class="section-label">Search properties</span>
+            <h2>Discover properties with clarity</h2>
+          </div>
+          <p>Search across the marketplace, filter by property type and deal structure, and move into the right portal when you are ready to act.</p>
         </div>
-        <div class="tabs" id="marketTabs">
-          <button class="tab active" data-tab="all">All</button>
-          <button class="tab" data-tab="Sale">For Sale</button>
-          <button class="tab" data-tab="Rent">For Rent</button>
+        <div class="search-section">
+          <div class="search-box glass-card">
+            <input id="searchInput" class="field" type="text" placeholder="Search by location, property type, or keyword..." />
+            <select id="typeFilter" class="select">
+              <option value="all">All Types</option>
+              <option value="Apartment">Apartment</option>
+              <option value="House">House</option>
+              <option value="Villa">Villa</option>
+              <option value="Commercial">Commercial</option>
+            </select>
+            <select id="dealFilter" class="select">
+              <option value="all">Any Deal</option>
+              <option value="Sale">For Sale</option>
+              <option value="Rent">For Rent</option>
+            </select>
+            <button class="btn btn-primary" id="searchBtn"><i class="fa-solid fa-magnifying-glass"></i> Search</button>
+          </div>
         </div>
-      </div>
+      </section>
 
-      <div id="propertiesGrid" class="properties-grid"></div>
+      <section class="homepage-section">
+        <div class="section-heading-block">
+          <span class="section-label">How it works</span>
+          <h2>A straightforward platform flow</h2>
+          <p>Property Flow is designed to keep the marketplace easy to understand, even when listings, approvals, and account roles become more complex.</p>
+        </div>
+        <div class="workflow-grid">
+          <article class="workflow-card glass-card">
+            <span class="workflow-step">01</span>
+            <h3>Browse properties</h3>
+            <p>Buyers and tenants explore the marketplace through a clear public homepage with property search and filtering.</p>
+          </article>
+          <article class="workflow-card glass-card">
+            <span class="workflow-step">02</span>
+            <h3>Agents manage and publish listings</h3>
+            <p>Agents sign in to manage their listings, upload property images, and keep their portfolio organized inside the portal.</p>
+          </article>
+          <article class="workflow-card glass-card">
+            <span class="workflow-step">03</span>
+            <h3>Admins review important actions</h3>
+            <p>Administrators oversee approvals, moderation, and platform-sensitive updates through a structured workflow.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="homepage-section feature-section">
+        <div class="section-heading-inline">
+          <div>
+            <span class="section-label">Platform features</span>
+            <h2>Built for real property operations</h2>
+          </div>
+          <p>Every core action is designed to support a serious marketplace, from search and listing creation to moderation and access control.</p>
+        </div>
+        <div class="feature-grid">
+          <article class="feature-card glass-card">
+            <i class="fa-solid fa-sliders"></i>
+            <h3>Property search and filtering</h3>
+            <p>Find listings by keyword, property type, and deal structure in one marketplace view.</p>
+          </article>
+          <article class="feature-card glass-card">
+            <i class="fa-solid fa-house-chimney-window"></i>
+            <h3>Agent listing management</h3>
+            <p>Agents can manage listings, publish updates, and keep portfolio details organized in one portal.</p>
+          </article>
+          <article class="feature-card glass-card">
+            <i class="fa-solid fa-trash-can-arrow-up"></i>
+            <h3>Removal request workflow</h3>
+            <p>Listing removals follow a clear request and review process instead of silent changes.</p>
+          </article>
+          <article class="feature-card glass-card">
+            <i class="fa-solid fa-shield-halved"></i>
+            <h3>Admin moderation</h3>
+            <p>Administrators can review platform-sensitive actions and maintain marketplace standards.</p>
+          </article>
+          <article class="feature-card glass-card">
+            <i class="fa-solid fa-key"></i>
+            <h3>Secure login and role-based access</h3>
+            <p>Users move through the platform with access shaped by their authenticated account role.</p>
+          </article>
+          <article class="feature-card glass-card">
+            <i class="fa-solid fa-image"></i>
+            <h3>Property image uploads</h3>
+            <p>Listings support file-based image uploads so published properties display clearly in the marketplace.</p>
+          </article>
+          <article class="feature-card glass-card">
+            <i class="fa-solid fa-database"></i>
+            <h3>Supabase-backed persistence</h3>
+            <p>Live mode uses Supabase as the source of truth for listings, roles, and moderated workflows.</p>
+          </article>
+          <article class="feature-card glass-card">
+            <i class="fa-solid fa-clipboard-list"></i>
+            <h3>Structured operational visibility</h3>
+            <p>Platform activity stays easier to follow when listing changes, approvals, and access are managed in one place.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="homepage-section audience-section">
+        <div class="section-heading-block">
+          <span class="section-label">Who it serves</span>
+          <h2>Built for buyers, agents, and administrators</h2>
+          <p>Property Flow is not only a storefront. It is a shared operating space for the people who discover, manage, and govern property activity.</p>
+        </div>
+        <div class="audience-grid">
+          <article class="audience-card glass-card">
+            <h3>Buyers</h3>
+            <p>Explore properties in a clear public marketplace with searchable listings and a more organized browsing experience.</p>
+          </article>
+          <article class="audience-card glass-card">
+            <h3>Agents</h3>
+            <p>Manage listings, publish property updates, and work through a structured portal designed for active property operations.</p>
+          </article>
+          <article class="audience-card glass-card">
+            <h3>Administrators</h3>
+            <p>Review approvals, moderate sensitive actions, and maintain platform trust through role-aware controls.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="homepage-section listing-showcase">
+        <div class="section-head">
+          <div>
+            <span class="section-label">Marketplace preview</span>
+            <h2 class="section-title">Featured properties</h2>
+            <p class="section-sub">Browse current listings while the platform keeps agent activity and approvals organized in the background.</p>
+          </div>
+          <div class="tabs" id="marketTabs">
+            <button class="tab active" data-tab="all">All</button>
+            <button class="tab" data-tab="Sale">For Sale</button>
+            <button class="tab" data-tab="Rent">For Rent</button>
+          </div>
+        </div>
+        <div id="propertiesGrid" class="properties-grid"></div>
+      </section>
+
+      <section class="homepage-section final-cta-section">
+        <div class="final-cta-card glass-card">
+          <div>
+            <span class="section-label">Get started</span>
+            <h2>Property Flow brings browsing, listing, and moderation into one unified platform.</h2>
+            <p>Explore listings, sign in to your portal, or move into the agent workflow when you are ready to manage property operations with more structure.</p>
+          </div>
+          <div class="homepage-actions">
+            <button class="btn btn-primary" type="button" onclick="document.getElementById('searchSection').scrollIntoView({ behavior: 'smooth', block: 'start' })"><i class="fa-solid fa-house"></i> Explore Listings</button>
+            <button class="btn btn-secondary" type="button" onclick="setAuthMode(false); openModal('loginModal')"><i class="fa-solid fa-user"></i> Sign In</button>
+            <button class="btn btn-outline" type="button" onclick="navigateToView('agent')"><i class="fa-solid fa-plus"></i> Post a Property</button>
+            <button class="btn btn-outline" type="button" onclick="navigateToView('agent')"><i class="fa-solid fa-briefcase"></i> Manage Your Portal</button>
+          </div>
+        </div>
+      </section>
     </section>
 
     <!-- AGENT PORTAL SECTION -->
     <section class="view page-view" id="agent-dashboard" style="display: none;">
       <div class="page-heading">
-        <h1>Agent portal</h1>
-        <p>Everything an agent needs: listings, inquiries, deals, commissions, and protection controls.</p>
+        <span class="section-label">Agent workspace</span>
+        <h1>Manage listings with confidence</h1>
+        <p>Use the Property Flow agent workspace to oversee listings, follow active deals, track requests, and keep client-facing activity organized.</p>
       </div>
 
       <div class="dashboard">
@@ -94,7 +291,7 @@
             <div class="agent-avatar" id="agentAvatarInitials">JD</div>
             <div>
               <h3 id="agentDisplayName" style="margin:0">John Doe</h3>
-              <p style="margin:2px 0 0; color: var(--muted); font-size:.84rem;">Premium Agent</p>
+              <p style="margin:2px 0 0; color: var(--muted); font-size:.84rem;">Agent account</p>
             </div>
           </div>
           <ul class="sidebar-menu">
@@ -112,13 +309,13 @@
           <div class="banner">
             <div class="icon"><i class="fa-solid fa-lock"></i></div>
             <div>
-              <h3>Business protection active</h3>
-              <p>All deals are monitored to reduce circumvention. Listing removals require a reason and admin approval. Successful deals are charged a 2% platform fee.</p>
+              <h3>Operational safeguards are in place</h3>
+              <p>Listings, removal requests, and deal activity are tracked through a structured workflow so important updates stay visible and reviewable.</p>
             </div>
           </div>
 
           <div id="agent-overview" class="agent-tab active">
-            <h2>Dashboard overview</h2>
+            <h2>Workspace overview</h2>
             <div class="stats-grid">
               <div class="stat-card"><div class="stat-header"><div><div class="stat-value">12</div><div class="stat-label">Active listings</div></div><div class="stat-icon blue"><i class="fa-solid fa-home"></i></div></div><div class="stat-change positive"><i class="fa-solid fa-arrow-trend-up"></i> +2 this month</div></div>
               <div class="stat-card"><div class="stat-header"><div><div class="stat-value">$2.4M</div><div class="stat-label">Total value listed</div></div><div class="stat-icon purple"><i class="fa-solid fa-dollar-sign"></i></div></div><div class="stat-change positive"><i class="fa-solid fa-arrow-trend-up"></i> +15% vs last month</div></div>
@@ -139,7 +336,7 @@
             <div class="section-head" style="margin-top:0">
               <div>
                 <h2 class="section-title">My listings</h2>
-                <p class="section-sub">Add, edit, and monitor your properties.</p>
+                <p class="section-sub">Review active properties, publish new entries, and keep listing details up to date.</p>
               </div>
               <button class="btn btn-primary" id="openAddListingBtn"><i class="fa-solid fa-plus"></i> Add new property</button>
             </div>
@@ -162,8 +359,8 @@
               <div class="deal-protection-header">
                 <i class="fa-solid fa-circle-info"></i>
                 <div>
-                  <h3 style="margin:0 0 6px;">Deal protection protocol</h3>
-                  <p style="margin:0; color: var(--muted);">All negotiations should stay inside the platform. External attempts are flagged and reviewed.</p>
+                  <h3 style="margin:0 0 6px;">Deal workflow guidance</h3>
+                  <p style="margin:0; color: var(--muted);">Keep negotiations and updates inside the platform so listing activity, approvals, and platform records remain aligned.</p>
                 </div>
               </div>
             </div>
@@ -203,7 +400,7 @@
               <div style="display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap;">
                 <div>
                   <h3 style="margin:0">Verification request</h3>
-                  <p style="margin:.5rem 0 0; color:var(--muted)">Submit a verification request for higher trust and fee protection.</p>
+                  <p style="margin:.5rem 0 0; color:var(--muted)">Prepare account review notes for a future verification submission workflow.</p>
                 </div>
                 <button class="btn btn-primary" id="openVerificationRequestBtn"><i class="fa-solid fa-file-circle-plus"></i> New request</button>
               </div>
@@ -220,19 +417,19 @@
           </div>
 
           <div id="agent-protection" class="agent-tab">
-            <h2>Business protection center</h2>
+            <h2>Listing controls</h2>
             <div class="glass-card" style="padding:18px; margin-top:16px;">
-              <h3 style="margin-top:0; color:#86efac"><i class="fa-solid fa-shield-halved"></i> Protection status: Active</h3>
-              <p style="color:var(--muted)">Your listings are protected with activity logging, approval-based removals, and flagged circumvention detection.</p>
+              <h3 style="margin-top:0; color:#cbd5e1"><i class="fa-solid fa-shield-halved"></i> Review controls are active</h3>
+              <p style="color:var(--muted)">Removal requests and related activity are surfaced for review so important listing changes are not lost or applied without context.</p>
               <div class="commission-grid">
-                <div class="commission-item"><div class="commission-value">Locked</div><div class="commission-label">Buyer communications</div></div>
-                <div class="commission-item"><div class="commission-value">24/7</div><div class="commission-label">Deal monitoring</div></div>
-                <div class="commission-item"><div class="commission-value">Enforced</div><div class="commission-label">Digital contracts</div></div>
+                <div class="commission-item"><div class="commission-value">Tracked</div><div class="commission-label">Listing changes</div></div>
+                <div class="commission-item"><div class="commission-value">Reviewed</div><div class="commission-label">Removal requests</div></div>
+                <div class="commission-item"><div class="commission-value">Visible</div><div class="commission-label">Platform activity</div></div>
               </div>
             </div>
             <div style="margin-top:18px; padding:18px; border-radius:22px; background: rgba(255,255,255,.05); border:1px solid var(--border);">
               <h3 style="margin-top:0">Request listing removal</h3>
-              <p style="color:var(--muted)">A removal request must include a valid reason and will be reviewed by admin before the listing disappears.</p>
+              <p style="color:var(--muted)">Submit a clear reason for removal. The request stays visible until an administrator reviews and resolves it.</p>
               <button class="btn btn-danger" id="openRemovalBtn"><i class="fa-solid fa-trash"></i> Submit removal request</button>
             </div>
           </div>
@@ -243,8 +440,9 @@
     <!-- ADMIN PORTAL SECTION -->
     <section class="view page-view" id="admin-dashboard" style="display: none;">
       <div class="page-heading">
-        <h1>Admin Control Center</h1>
-        <p>Monitor agents, approve removals, manage commissions, and enforce marketplace integrity.</p>
+        <span class="section-label">Admin workspace</span>
+        <h1>Keep platform activity organized and trustworthy</h1>
+        <p>Review marketplace operations, moderate sensitive actions, and maintain a clear record of listings, approvals, and account activity.</p>
       </div>
 
       <div class="dashboard">
@@ -253,7 +451,7 @@
             <div class="agent-avatar">AD</div>
             <div>
               <h3 style="margin:0">Administrator</h3>
-              <p style="margin:2px 0 0; color: var(--muted); font-size:.84rem;">System Admin</p>
+              <p style="margin:2px 0 0; color: var(--muted); font-size:.84rem;">Platform oversight</p>
             </div>
           </div>
           <ul class="sidebar-menu">
@@ -271,13 +469,13 @@
           <div class="banner">
             <div class="icon"><i class="fa-solid fa-shield-halved"></i></div>
             <div>
-              <h3>Marketplace integrity protected</h3>
-              <p>System monitoring active. 2% platform fee auto-collected on completed deals. All agent submissions require approval.</p>
+              <h3>Marketplace oversight is active</h3>
+              <p>Approvals, flagged actions, and key operational records remain visible so administrators can review the platform with context.</p>
             </div>
           </div>
 
           <div id="admin-overview" class="admin-tab active">
-            <h2>Dashboard overview</h2>
+            <h2>Workspace overview</h2>
             <div class="stats-grid">
               <div class="stat-card"><div class="stat-header"><div><div class="stat-value">45</div><div class="stat-label">Active agents</div></div><div class="stat-icon blue"><i class="fa-solid fa-users"></i></div></div><div class="stat-change positive"><i class="fa-solid fa-arrow-trend-up"></i> +3 this month</div></div>
               <div class="stat-card"><div class="stat-header"><div><div class="stat-value">$180M</div><div class="stat-label">Total listed value</div></div><div class="stat-icon purple"><i class="fa-solid fa-chart-bar"></i></div></div><div class="stat-change positive"><i class="fa-solid fa-arrow-trend-up"></i> +22% YoY</div></div>
@@ -303,7 +501,7 @@
             <h2>Removal request approvals</h2>
             <div class="alert-box">
               <i class="fa-solid fa-exclamation-triangle"></i>
-              <p><strong>3 pending requests</strong> require review. Approve or reject based on justification quality.</p>
+              <p><strong>3 pending requests</strong> are waiting for review. Approve or reject them based on the reason provided and the listing context.</p>
             </div>
             <table class="data-table">
               <thead>
@@ -354,22 +552,21 @@
   <div class="modal-overlay" id="loginModal">
     <div class="modal">
       <div class="modal-header">
-        <h3 class="modal-title">Sign in to PropertyFlow</h3>
+        <h3 class="modal-title">Sign in to Property Flow</h3>
         <button class="modal-close" data-close="loginModal"><i class="fa-solid fa-xmark"></i></button>
       </div>
       <div class="modal-body">
-        <div class="login-role-selector" style="display: flex; gap: 12px; margin-bottom: 20px;">
-          <button id="loginRoleAgent" class="btn btn-secondary" onclick="setLoginRole('agent')" style="flex: 1; background: rgba(37, 99, 235, 0.2); border-color: rgba(37, 99, 235, 0.4); color: #60a5fa;">
-            <i class="fa-solid fa-briefcase"></i> Agent
-          </button>
-          <button id="loginRoleAdmin" class="btn btn-secondary" onclick="setLoginRole('admin')" style="flex: 1;">
-            <i class="fa-solid fa-shield-halved"></i> Admin
-          </button>
+        <div id="loginRoleSelector" class="login-role-selector" style="display: none;"></div>
+        <div id="signupFields" style="display: none;">
+          <div class="form-group"><label class="form-label">Full name</label><input id="signupName" class="field" type="text" placeholder="Jane Doe" /></div>
+          <div class="form-group"><label class="form-label">Agency</label><input id="signupAgency" class="field" type="text" placeholder="BlueKey Realty" /></div>
+          <div class="form-group"><label class="form-label">Confirm password</label><input id="signupPasswordConfirm" class="field" type="password" placeholder="confirm password" /></div>
         </div>
         <div class="form-group"><label class="form-label">Email</label><input id="loginEmail" class="field" type="email" placeholder="agent@propertyflow.com" /></div>
         <div class="form-group"><label class="form-label">Password</label><input id="loginPassword" class="field" type="password" placeholder="password" /></div>
-        <div class="form-note">Use your Supabase account to sign in. Password is not validated in demo mode.</div>
-        <div class="modal-actions"><button class="btn btn-secondary" data-close="loginModal">Cancel</button><button class="btn btn-primary" id="signInBtn">Sign in</button></div>
+        <div class="form-note" id="authNote">Use your Supabase account to sign in. Roles are loaded from the profiles table after login.</div>
+        <div class="modal-actions"><button class="btn btn-secondary" data-close="loginModal">Cancel</button><button class="btn btn-primary" id="authActionBtn">Sign in</button></div>
+        <div class="form-note" style="margin-top: 16px; text-align: center;"><a href="#" id="toggleAuthMode">New agent? Create an account</a></div>
       </div>
     </div>
   </div>
@@ -399,7 +596,7 @@
         </div>
         <div class="form-row">
           <div class="form-group"><label class="form-label">Bathrooms</label><input id="newBaths" class="field" type="number" placeholder="2" min="0" /></div>
-          <div class="form-group"><label class="form-label">Image URL</label><input id="newImage" class="field" type="url" placeholder="https://..." /></div>
+          <div class="form-group"><label class="form-label">Property image</label><input id="newImage" class="field" type="file" accept="image/*" /></div>
         </div>
         <div class="form-group"><label class="form-label">Description</label><textarea id="newDesc" class="textarea" placeholder="Describe the property..."></textarea></div>
         <div class="modal-actions"><button class="btn btn-secondary" data-close="addListingModal">Cancel</button><button class="btn btn-primary" id="saveListingBtn"><i class="fa-solid fa-floppy-disk"></i> Save listing</button></div>
@@ -424,8 +621,19 @@
 
   <div id="toast" class="toast"><i class="fa-solid fa-circle-info"></i><span id="toastText">Done.</span></div>
 
+  <!-- Load Supabase SDK first -->
   <script src="vendor/supabase.js"></script>
+  
+  <!-- Load browser-safe config (sets window.PROPERTYFLOW_CONFIG) -->
+  <script type="module">
+    import PROPERTYFLOW_CONFIG from './config.js';
+    window.PROPERTYFLOW_CONFIG = PROPERTYFLOW_CONFIG;
+  </script>
+  
+  <!-- Load browser API wrapper (uses PROPERTYFLOW_CONFIG) -->
   <script src="lib/browser-api.js"></script>
+  
+  <!-- Load main app -->
   <script src="app.js"></script>
 </body>
 </html>

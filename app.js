@@ -1,7 +1,32 @@
+/**
+ * app.js
+ * 
+ * MAIN APP LOGIC
+ * 
+ * Browser Security:
+ * - This file uses window.propertyFlowApi (from lib/browser-api.js)
+ * - window.propertyFlowApi only uses the Supabase anon key
+ * - No service-role keys are available in the browser
+ *
+ * App Modes:
+ * - 'supabase' mode treats Supabase as the source of truth
+ * - 'demo' mode is explicit local/offline storage for demos only
+ * - Local fallback is never mixed silently into live Supabase mode
+ *
+ * Session Persistence:
+ * - Supabase mode relies on the Supabase auth session
+ * - Demo mode stores propertyflow_session and propertyflow_registered_agents in localStorage
+ */
+
 const api = window.propertyFlowApi || null;
+const propertyFlowConfig = window.PROPERTYFLOW_CONFIG || {};
+const APP_MODE = propertyFlowConfig.appMode === 'demo' ? 'demo' : 'supabase';
+const USE_SUPABASE = APP_MODE === 'supabase';
+const DEMO_MODE = APP_MODE === 'demo';
+
 const DEFAULT_AGENT = {
   name: 'John Doe',
-  agency: 'PropertyFlow Select',
+  agency: 'Property Flow Select',
   initials: 'JD'
 };
 const FALLBACK_IMAGE =
@@ -14,10 +39,15 @@ const currencyFormatter = new Intl.NumberFormat('en-US', {
 });
 
 const state = {
+  appMode: APP_MODE,
+  backendAvailable: Boolean(api?.available),
+  currentProfile: null,
+  currentAgentProfile: null,
   currentUser: null,
   userRole: null, // 'agent' or 'admin'
   userEmail: null,
   loginRole: 'agent', // role being attempted for login
+  signupMode: false,
   currentView: 'marketplace', // 'marketplace', 'agent', 'admin'
   activeMarketTab: 'all',
   search: '',
@@ -183,8 +213,65 @@ const state = {
   ]
 };
 
+const seedState = JSON.parse(JSON.stringify({
+  properties: state.properties,
+  removalRequests: state.removalRequests,
+  agents: state.agents,
+  deals: state.deals,
+  escrowMilestones: state.escrowMilestones,
+  agentVerifications: state.agentVerifications,
+  riskAlerts: state.riskAlerts,
+  logs: state.logs,
+  inquiries: state.inquiries
+}));
+
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
+
+function supabaseModeReady() {
+  return USE_SUPABASE && Boolean(api?.available);
+}
+
+function resetProtectedState() {
+  state.currentProfile = null;
+  state.currentAgentProfile = null;
+  state.removalRequests = DEMO_MODE ? [...seedState.removalRequests] : [];
+  state.deals = DEMO_MODE ? [...seedState.deals] : [];
+  state.escrowMilestones = DEMO_MODE ? [...seedState.escrowMilestones] : [];
+  state.agentVerifications = DEMO_MODE ? [...seedState.agentVerifications] : [];
+  state.riskAlerts = DEMO_MODE ? [...seedState.riskAlerts] : [];
+  state.agents = DEMO_MODE ? [...seedState.agents] : [];
+}
+
+function setBackendAvailability(isAvailable) {
+  state.backendAvailable = Boolean(isAvailable);
+  const banner = $('#appModeBanner');
+  if (!banner) return;
+
+  let text = '';
+  let tone = 'info';
+
+  if (DEMO_MODE) {
+    text = 'Demo mode is active. Data is local-only and not synced to Supabase.';
+    tone = 'warning';
+  } else if (state.backendAvailable) {
+    text = 'Live mode is active. Supabase is the source of truth.';
+    tone = 'success';
+  } else {
+    text = 'Live mode is active, but Supabase is unavailable. Showing bundled demo data in read-only fallback until the backend is reachable.';
+    tone = 'error';
+  }
+
+  banner.textContent = text;
+  banner.className = `app-mode-banner ${tone}`;
+}
+
+function syncRequestedHash(viewName) {
+  const nextHash = viewName && viewName !== 'marketplace' ? `#${viewName}` : '';
+  if (window.location.hash !== nextHash) {
+    window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}${nextHash}`);
+  }
+}
 
 function showToast(message, type = 'success') {
   const toast = $('#toast');
@@ -222,13 +309,25 @@ function closeModal(id) {
 function navigateToView(viewName) {
   // Hide all views
   $$('.page-view').forEach(view => view.style.display = 'none');
-  
+
   // Show the requested view
+  if (viewName === 'agent' && !state.currentUser) {
+    showToast('Sign in to access the agent portal.', 'warning');
+    openModal('loginModal');
+    viewName = 'marketplace';
+  }
+
+  if (viewName === 'admin' && state.userRole !== 'admin') {
+    showToast('Admin access is restricted to administrators only.', 'warning');
+    viewName = 'marketplace';
+  }
+
   const targetView = $('#' + (viewName === 'agent' ? 'agent-dashboard' : viewName === 'admin' ? 'admin-dashboard' : 'marketplace'));
   if (targetView) {
     targetView.style.display = 'block';
   }
-  
+
+  syncRequestedHash(viewName);
   // Update current view state
   state.currentView = viewName;
   document.body.dataset.view = viewName;
@@ -266,6 +365,69 @@ function setLoginRole(role) {
     }
   }
   if ($('#loginEmail')) $('#loginEmail').placeholder = role === 'agent' ? 'agent@propertyflow.com' : 'admin@propertyflow.com';
+}
+
+function setAuthMode(isSignUp) {
+  state.signupMode = Boolean(isSignUp);
+  setLoginRole('agent');
+
+  const modalTitle = $('#loginModal .modal-title');
+  const authActionBtn = $('#authActionBtn');
+  const authNote = $('#authNote');
+  const signupFields = $('#signupFields');
+  const loginRoleSelector = $('#loginRoleSelector');
+  const toggleLink = $('#toggleAuthMode');
+
+  if (state.signupMode) {
+    if (modalTitle) modalTitle.textContent = 'Register as an agent';
+    if (authActionBtn) authActionBtn.textContent = 'Create account';
+    if (authNote) authNote.textContent = 'Register a new agent account. Admin accounts must be created by invitation.';
+    if (signupFields) signupFields.style.display = 'block';
+    if (loginRoleSelector) loginRoleSelector.style.display = 'none';
+    if (toggleLink) toggleLink.textContent = 'Already registered? Sign in';
+  } else {
+    if (modalTitle) modalTitle.textContent = 'Sign in to Property Flow';
+    if (authActionBtn) authActionBtn.textContent = 'Sign in';
+    if (authNote) authNote.textContent = DEMO_MODE
+      ? 'Demo mode is active. Sign in uses local/offline demo credentials.'
+      : 'Use your Supabase account to sign in. Roles are loaded from the profiles table after login.';
+    if (signupFields) signupFields.style.display = 'none';
+    if (loginRoleSelector) loginRoleSelector.style.display = 'flex';
+    if (toggleLink) toggleLink.textContent = 'New agent? Create an account';
+  }
+}
+
+// DEMO MODE ONLY: Local agent storage (disabled by default for security)
+// These functions are only available when DEMO_MODE is explicitly enabled.
+// In production, authentication is handled exclusively by Supabase.
+function getStoredAgents() {
+  if (!DEMO_MODE) {
+    console.warn('Local agent storage only available in DEMO_MODE');
+    return [];
+  }
+  try {
+    return JSON.parse(localStorage.getItem('propertyflow_registered_agents') || '[]');
+  } catch (error) {
+    console.error('Failed to load stored agents:', error);
+    return [];
+  }
+}
+
+function findStoredAgentByCredentials(email, password) {
+  if (!DEMO_MODE) return null;
+  return getStoredAgents().find((agent) => agent.email.toLowerCase() === email.toLowerCase() && agent.password === password);
+}
+
+function findStoredAgentByEmail(email) {
+  if (!DEMO_MODE) return null;
+  return getStoredAgents().find((agent) => agent.email.toLowerCase() === email.toLowerCase());
+}
+
+function clearSignupFields() {
+  ['#signupName', '#signupAgency', '#signupPasswordConfirm'].forEach((selector) => {
+    const field = $(selector);
+    if (field) field.value = '';
+  });
 }
 
 function showView(viewId) {
@@ -352,7 +514,11 @@ function buildListing(property) {
   return {
     property: property.title,
     price: property.price,
-    status: 'Active',
+    status: normalizeStatusToken(property.status) === 'removed'
+      ? 'Sold'
+      : normalizeStatusToken(property.status) === 'pending_review'
+        ? 'Pending'
+        : 'Active',
     inquiries: 0,
     protection: 'Protected'
   };
@@ -424,9 +590,14 @@ function findPropertyByTitle(title) {
   return state.properties.find((property) => property.title === title);
 }
 
-function removeListingByPropertyTitle(title) {
-  state.listings = state.listings.filter((listing) => listing.property !== title);
-  renderAgentListings();
+function getDerivedListings() {
+  return state.properties
+    .filter((property) => {
+      if (!state.currentUser || state.userRole === 'admin' || DEMO_MODE) return true;
+      return String(property.agentId) === String(state.currentUser.id);
+    })
+    .filter((property) => !isPropertyRemoved(property))
+    .map((property) => buildListing(property));
 }
 
 function updateRemovalRequestBadge() {
@@ -445,6 +616,7 @@ function normalizePropertyRecord(record) {
 
   return {
     id: record.id ?? Date.now(),
+    agentId: record.agent_id ?? record.agentId ?? null,
     title: record.title || 'Untitled Property',
     price: formatPrice(record.price ?? record.priceValue ?? '', dealType),
     priceValue: priceValue,
@@ -484,54 +656,107 @@ function normalizeRemovalRequest(record) {
 }
 
 function normalizeDealRecord(record) {
-  const amountValue = parsePriceValue(record.amount ?? record.amount_value ?? record.amountValue) ?? 0;
+  const amountValue = parsePriceValue(record.agreed_amount ?? record.amount ?? record.amount_value ?? record.amountValue) ?? 0;
   const feeValue = Math.round(amountValue * COMMISSION_RATE);
-  const fee = amountValue ? currencyFormatter.format(feeValue) : record.fee || '$0';
-  const stage = record.escrow_stage || record.escrowStage || 'Setup';
+  const fee = record.commission_amount != null
+    ? currencyFormatter.format(Number(record.commission_amount) || 0)
+    : amountValue
+      ? currencyFormatter.format(feeValue)
+      : record.fee || '$0';
+  const stage = record.stage || record.escrow_stage || record.escrowStage || 'Setup';
+  const propertyTitle = record.property || record.properties?.title || `Property #${record.property_id ?? 'Unknown'}`;
+  const agentName = record.agent || record.agent_name || record.agent_profiles?.full_name || DEFAULT_AGENT.name;
 
   return {
     id: record.id ?? `#DEAL-${Date.now()}`,
-    property: record.property || 'Unknown property',
-    buyer: record.buyer || record.buyer_name || '-',
-    amount: formatPrice(record.amount ?? record.amountValue ?? amountValue, record.dealType || 'Sale'),
+    agentId: record.agent_id ?? record.agentId ?? null,
+    propertyId: record.property_id ?? record.propertyId ?? null,
+    property: propertyTitle,
+    buyer: record.buyer || record.buyer_name || record.client_name || '-',
+    amount: formatPrice(record.agreed_amount ?? record.amount ?? record.amountValue ?? amountValue, record.dealType || 'Sale'),
     amountValue,
     fee,
-    status: record.status || 'Negotiation',
+    status: toTitleCase(record.status || stage || 'Negotiation'),
     escrowStage: stage,
-    agent: record.agent || record.agent_name || DEFAULT_AGENT.name
+    agent: agentName
   };
 }
 
 function normalizeAgentVerification(record) {
+  const verificationStatus = String(record.status || 'pending').toLowerCase();
   return {
     id: record.id ?? `verify-${Date.now()}`,
-    agent: record.agent_name || record.agent || DEFAULT_AGENT.name,
-    status: String(record.status || 'pending').toLowerCase() === 'verified' ? 'Verified' : String(record.status || 'pending').toLowerCase() === 'rejected' ? 'Review clear' : 'Pending verification',
+    agentId: record.agent_id ?? record.agentId ?? null,
+    agent: record.legal_name || record.agent_name || record.agent || DEFAULT_AGENT.name,
+    status: verificationStatus === 'approved' || verificationStatus === 'verified'
+      ? 'Verified'
+      : verificationStatus === 'rejected'
+        ? 'Review clear'
+        : 'Pending verification',
     submitted: record.submitted_at || record.submittedAt || 'Unknown',
-    note: record.note || record.reason || ''
+    note: record.notes || record.note || record.reason || ''
   };
 }
 
 function normalizeRiskAlert(record) {
+  const property = record.property
+    || record.properties?.title
+    || findPropertyById(record.property_id ?? record.propertyId)?.title
+    || 'Unknown property';
+  const agent = record.agent
+    || record.agent_profiles?.full_name
+    || state.agents.find((item) => String(item.agentId) === String(record.agent_id ?? record.agentId))?.name
+    || DEFAULT_AGENT.name;
+
   return {
     id: record.id ?? `risk-${Date.now()}`,
+    propertyId: record.property_id ?? record.propertyId ?? null,
+    agentId: record.agent_id ?? record.agentId ?? null,
     time: record.time || formatRelativeTime(record.created_at || record.createdAt),
-    property: record.property || 'Unknown property',
-    agent: record.agent || DEFAULT_AGENT.name,
-    reason: record.reason || record.description || 'Risk event detected',
+    property,
+    agent,
+    reason: record.reason || record.description || record.title || 'Risk event detected',
     severity: record.severity || 'medium'
+  };
+}
+
+function normalizeAgentProfileRecord(record) {
+  return {
+    agentId: record.agent_id ?? null,
+    name: record.full_name || DEFAULT_AGENT.name,
+    agency: record.agency_name || DEFAULT_AGENT.agency,
+    listings: 0,
+    deals: 0,
+    trust: Number(record.trust_score ?? 50),
+    status: record.verification_status === 'verified'
+      ? 'Verified'
+      : record.verification_status === 'needs_info'
+        ? 'Review clear'
+      : 'Pending verification'
+  };
+}
+
+function normalizeEscrowMilestoneRecord(record) {
+  const relatedDeal = state.deals.find((deal) => String(deal.id) === String(record.deal_id ?? record.dealId));
+  return {
+    id: record.id ?? `escrow-${Date.now()}`,
+    dealId: record.deal_id ?? record.dealId ?? null,
+    property: relatedDeal?.property || `Deal #${record.deal_id ?? record.dealId ?? 'Unknown'}`,
+    step: record.label || record.step || 'Milestone',
+    amount: Number(record.amount ?? 0),
+    status: toTitleCase(record.status || 'pending')
   };
 }
 
 function syncAgentVerificationStatus() {
   if (!state.agentVerifications || !state.agentVerifications.length) return;
   const lookup = state.agentVerifications.reduce((acc, item) => {
-    acc[item.agent] = item;
+    acc[String(item.agentId || item.agent)] = item;
     return acc;
   }, {});
 
   state.agents = state.agents.map((agent) => {
-    const verification = lookup[agent.name];
+    const verification = lookup[String(agent.agentId || agent.name)];
     if (verification) {
       return {
         ...agent,
@@ -540,6 +765,29 @@ function syncAgentVerificationStatus() {
       };
     }
     return agent;
+  });
+}
+
+function hydrateAgentSummaries() {
+  const listingCounts = state.properties.reduce((acc, property) => {
+    const key = String(property.agentId || property.agent);
+    acc[key] = (acc[key] || 0) + (isPropertyRemoved(property) ? 0 : 1);
+    return acc;
+  }, {});
+
+  const dealCounts = state.deals.reduce((acc, deal) => {
+    const key = String(deal.agentId || deal.agent);
+    acc[key] = (acc[key] || 0) + 1;
+    return acc;
+  }, {});
+
+  state.agents = state.agents.map((agent) => {
+    const key = String(agent.agentId || agent.name);
+    return {
+      ...agent,
+      listings: listingCounts[key] ?? agent.listings ?? 0,
+      deals: dealCounts[key] ?? agent.deals ?? 0
+    };
   });
 }
 
@@ -559,27 +807,45 @@ function addAuditLog(type, user, content) {
   renderAuditLog(getActiveLogFilter());
 }
 
+function getAuditEntries(filter = 'all') {
+  const alertLogs = state.riskAlerts.map((alert) => ({
+    time: alert.time,
+    type: 'circumvention',
+    user: 'SYSTEM',
+    content: `${alert.reason} for ${alert.property}.`
+  }));
+
+  const combined = [...alertLogs, ...state.logs];
+  return filter === 'all' ? combined : combined.filter((log) => log.type === filter);
+}
+
 function addRiskAlert(alert) {
   const normalized = normalizeRiskAlert(alert);
   state.riskAlerts.unshift(normalized);
   addAuditLog('circumvention', 'SYSTEM', `${normalized.reason} for ${normalized.property} by ${normalized.agent}.`);
 
-  if (api?.available && api.createRiskAlert) {
+  if (supabaseModeReady() && api.createRiskAlert && normalized.agentId) {
     void api.createRiskAlert({
-      property: normalized.property,
-      agent: normalized.agent,
-      reason: normalized.reason,
+      property_id: normalized.propertyId,
+      agent_id: normalized.agentId,
+      category: 'anti_circumvention',
       severity: normalized.severity,
+      title: 'Circumvention risk flagged',
+      description: normalized.reason,
+      signal_source: 'system',
+      status: 'open',
       created_at: new Date().toISOString()
     });
   }
 }
 
-function detectCircumvention(reason, propertyTitle, agentName) {
+function detectCircumvention(reason, propertyTitle, agentName, propertyId = null, agentId = null) {
   const triggerWords = /external|cash|outside|off[-\s]?platform|direct|bypass|skip|private|commission free|untracked/i;
   if (!reason || !triggerWords.test(reason)) return false;
 
   addRiskAlert({
+    property_id: propertyId,
+    agent_id: agentId,
     property: propertyTitle,
     agent: agentName,
     reason: `Potential circumvention activity detected in removal request: "${reason}"`,
@@ -597,6 +863,7 @@ function resetListingForm() {
 
 function updateAuthUi() {
   const loginBtn = $('#openLoginBtn');
+  const signupBtn = $('#openSignupBtn');
   const userMenuBtn = $('#userMenuBtn');
   const userMenu = $('#userMenu');
   const agentPortalBtn = $('#agentPortalBtn');
@@ -607,15 +874,19 @@ function updateAuthUi() {
     if (loginBtn) {
       loginBtn.style.display = 'none';
     }
+    if (signupBtn) {
+      signupBtn.style.display = 'none';
+    }
     if (userMenuBtn) {
       userMenuBtn.style.display = 'inline-flex';
       const email = state.currentUser.email || state.userEmail || 'Account';
+      const preferredLabel = state.currentAgentProfile?.full_name || state.currentProfile?.full_name || email;
       const userLabel = $('#userLabel');
-      if (userLabel) userLabel.textContent = email.split('@')[0];
+      if (userLabel) userLabel.textContent = preferredLabel.split('@')[0];
     }
 
     // Show portal buttons based on role
-    if (state.userRole === 'agent' && agentPortalBtn) {
+    if (agentPortalBtn) {
       agentPortalBtn.style.display = 'inline-flex';
     }
     if (state.userRole === 'admin' && adminPortalBtn) {
@@ -626,13 +897,17 @@ function updateAuthUi() {
     if (state.userRole === 'agent') {
       const avatar = $('#agentAvatarInitials');
       const name = $('#agentDisplayName');
-      if (avatar) avatar.textContent = inferInitials(state.currentUser.email);
-      if (name) name.textContent = state.currentUser.email?.split('@')[0] || 'Agent';
+      const displayName = state.currentAgentProfile?.full_name || state.currentUser.email?.split('@')[0] || 'Agent';
+      if (avatar) avatar.textContent = inferInitials(displayName);
+      if (name) name.textContent = displayName;
     }
   } else {
     // User is not authenticated
     if (loginBtn) {
       loginBtn.style.display = 'inline-flex';
+    }
+    if (signupBtn) {
+      signupBtn.style.display = 'inline-flex';
     }
     if (userMenuBtn) {
       userMenuBtn.style.display = 'none';
@@ -657,17 +932,93 @@ function toggleUserMenu() {
   }
 }
 
+async function loadUserProfile(user) {
+  if (!user || !supabaseModeReady() || !api?.fetchUserProfile) return null;
+
+  const { data, error } = await api.fetchUserProfile(user.id);
+  if (error) {
+    console.error('Failed to load profile for user:', error);
+    return null;
+  }
+
+  return data;
+}
+
+async function loadAgentProfile(user) {
+  if (!user || !supabaseModeReady() || !api?.fetchAgentProfiles) return null;
+
+  const { data, error } = await api.fetchAgentProfiles();
+  if (error) {
+    console.error('Failed to load agent profile:', error);
+    return null;
+  }
+
+  return Array.isArray(data)
+    ? data.find((profile) => String(profile.agent_id) === String(user.id)) || null
+    : null;
+}
+
+async function ensureUserProfiles(user, metadata = {}) {
+  if (!user || !supabaseModeReady() || !api?.ensureCurrentUserProfile) {
+    return null;
+  }
+
+  const { data, error } = await api.ensureCurrentUserProfile(user, metadata);
+  if (error) {
+    console.error('Failed to provision the current user profile:', error);
+    return null;
+  }
+
+  return data;
+}
+
+async function applyAuthenticatedUser(user, options = {}) {
+  const { ensureProfile = false } = options;
+
+  state.currentUser = user || null;
+  state.userEmail = user?.email || null;
+  state.currentProfile = null;
+  state.currentAgentProfile = null;
+  state.userRole = null;
+
+  if (!user) {
+    resetProtectedState();
+    updateAuthUi();
+    return;
+  }
+
+  if (supabaseModeReady() && ensureProfile) {
+    await ensureUserProfiles(user, user.user_metadata || {});
+  }
+
+  if (supabaseModeReady()) {
+    const [profile, agentProfile] = await Promise.all([
+      loadUserProfile(user),
+      loadAgentProfile(user)
+    ]);
+
+    state.currentProfile = profile;
+    state.currentAgentProfile = agentProfile;
+    state.userRole = profile?.role || 'agent';
+  } else if (DEMO_MODE) {
+    state.userRole = state.userRole || 'agent';
+  }
+
+  updateAuthUi();
+}
+
 async function restoreCurrentUser() {
-  if (!api?.available || !api?.getCurrentUser) return;
+  if (!supabaseModeReady() || !api?.getCurrentUser) return;
 
   const { data, error } = await api.getCurrentUser();
   if (error) {
     console.error(error);
+    setBackendAvailability(false);
     return;
   }
 
-  state.currentUser = data?.user || null;
-  updateAuthUi();
+  setBackendAvailability(true);
+  await applyAuthenticatedUser(data?.user || null, { ensureProfile: Boolean(data?.user) });
 }
 
 function propertyCard(property) {
@@ -734,29 +1085,45 @@ function renderProperties() {
 }
 
 async function loadProperties() {
-  if (!api?.available || !api?.fetchProperties) {
+  if (!supabaseModeReady() || !api?.fetchProperties) {
+    setBackendAvailability(DEMO_MODE);
+    if (!DEMO_MODE) {
+      state.properties = [...seedState.properties];
+    }
     renderProperties();
     populateRemovalPropertySelect();
+    hydrateAgentSummaries();
+    renderAgentManagement();
     return;
   }
 
   const { data, error } = await api.fetchProperties();
   if (error) {
     console.error(error);
-    showToast('Using demo properties. Supabase could not load listings.', 'warning');
+    setBackendAvailability(false);
+    state.properties = [...seedState.properties];
     renderProperties();
     populateRemovalPropertySelect();
+    hydrateAgentSummaries();
+    renderAgentManagement();
     return;
   }
 
-  state.properties = Array.isArray(data) ? data.map(normalizePropertyRecord) : state.properties;
+  setBackendAvailability(true);
+  state.properties = Array.isArray(data) ? data.map(normalizePropertyRecord) : [];
   syncRemovalRequestPresentation();
+  state.riskAlerts = state.riskAlerts.map(normalizeRiskAlert);
+  hydrateAgentSummaries();
   renderProperties();
   populateRemovalPropertySelect();
+  renderAgentManagement();
+  renderAuditLog(getActiveLogFilter());
+  renderAdminActivityLog();
 }
 
 async function loadRemovalRequests() {
-  if (!api?.available || !api?.fetchRemovalRequests) {
+  if (!supabaseModeReady() || !api?.fetchRemovalRequests) {
+    state.removalRequests = DEMO_MODE ? [...seedState.removalRequests] : [];
     renderAdminRemovalTable();
     renderRemovalRequests();
     return;
@@ -765,85 +1132,163 @@ async function loadRemovalRequests() {
   const { data, error } = await api.fetchRemovalRequests();
   if (error) {
     console.error(error);
-    showToast('Using demo approvals. Supabase could not load removal requests.', 'warning');
+    setBackendAvailability(false);
+    state.removalRequests = DEMO_MODE ? [...seedState.removalRequests] : [];
     renderAdminRemovalTable();
     renderRemovalRequests();
     return;
   }
 
-  state.removalRequests = Array.isArray(data) ? data.map((request) => normalizeRemovalRequest(request)) : state.removalRequests;
+  setBackendAvailability(true);
+  state.removalRequests = Array.isArray(data) ? data.map((request) => normalizeRemovalRequest(request)) : [];
   renderAdminRemovalTable();
   renderRemovalRequests();
 }
 
 async function loadDeals() {
-  if (!api?.available || !api?.fetchDeals) {
+  if (!supabaseModeReady() || !api?.fetchDeals) {
+    state.deals = DEMO_MODE ? [...seedState.deals] : [];
     renderAgentDeals();
     renderCommissions();
     renderAllDeals();
+    hydrateAgentSummaries();
+    renderAgentManagement();
     return;
   }
 
   const { data, error } = await api.fetchDeals();
   if (error) {
     console.error(error);
-    showToast('Unable to load deals from Supabase. Using local deal data.', 'warning');
+    setBackendAvailability(false);
+    state.deals = DEMO_MODE ? [...seedState.deals] : [];
     renderAgentDeals();
     renderCommissions();
     renderAllDeals();
+    hydrateAgentSummaries();
+    renderAgentManagement();
     return;
   }
 
-  state.deals = Array.isArray(data) ? data.map(normalizeDealRecord) : state.deals;
+  setBackendAvailability(true);
+  state.deals = Array.isArray(data) ? data.map(normalizeDealRecord) : [];
+  state.escrowMilestones = state.escrowMilestones.map(normalizeEscrowMilestoneRecord);
   renderAgentDeals();
   renderCommissions();
   renderAllDeals();
+  renderEscrowPanel();
+  renderAdminEscrowTable();
+  hydrateAgentSummaries();
+  renderAgentManagement();
+}
+
+async function loadAgentProfiles() {
+  if (!supabaseModeReady() || !api?.fetchAgentProfiles) {
+    state.agents = DEMO_MODE ? [...seedState.agents] : [];
+    syncAgentVerificationStatus();
+    hydrateAgentSummaries();
+    renderAgentManagement();
+    return;
+  }
+
+  const { data, error } = await api.fetchAgentProfiles();
+  if (error) {
+    console.error(error);
+    setBackendAvailability(false);
+    state.agents = DEMO_MODE ? [...seedState.agents] : [];
+    syncAgentVerificationStatus();
+    hydrateAgentSummaries();
+    renderAgentManagement();
+    return;
+  }
+
+  setBackendAvailability(true);
+  state.agents = Array.isArray(data) ? data.map(normalizeAgentProfileRecord) : [];
+  syncAgentVerificationStatus();
+  hydrateAgentSummaries();
+  renderAgentManagement();
+}
+
+async function loadEscrowMilestones() {
+  if (!supabaseModeReady() || !api?.fetchEscrowMilestones) {
+    state.escrowMilestones = DEMO_MODE ? [...seedState.escrowMilestones] : [];
+    renderEscrowPanel();
+    renderAdminEscrowTable();
+    return;
+  }
+
+  const { data, error } = await api.fetchEscrowMilestones();
+  if (error) {
+    console.error(error);
+    setBackendAvailability(false);
+    state.escrowMilestones = DEMO_MODE ? [...seedState.escrowMilestones] : [];
+    renderEscrowPanel();
+    renderAdminEscrowTable();
+    return;
+  }
+
+  setBackendAvailability(true);
+  state.escrowMilestones = Array.isArray(data) ? data.map(normalizeEscrowMilestoneRecord) : [];
+  renderEscrowPanel();
+  renderAdminEscrowTable();
 }
 
 async function loadAgentVerifications() {
-  if (!api?.available || !api?.fetchAgentVerifications) {
+  if (!supabaseModeReady() || !api?.fetchAgentVerifications) {
+    state.agentVerifications = DEMO_MODE ? [...seedState.agentVerifications] : [];
     syncAgentVerificationStatus();
     renderAgentManagement();
+    renderEscrowPanel();
     return;
   }
 
   const { data, error } = await api.fetchAgentVerifications();
   if (error) {
     console.error(error);
+    setBackendAvailability(false);
+    state.agentVerifications = DEMO_MODE ? [...seedState.agentVerifications] : [];
+    syncAgentVerificationStatus();
     renderAgentManagement();
+    renderEscrowPanel();
     return;
   }
 
-  state.agentVerifications = Array.isArray(data) ? data.map(normalizeAgentVerification) : state.agentVerifications;
+  setBackendAvailability(true);
+  state.agentVerifications = Array.isArray(data) ? data.map(normalizeAgentVerification) : [];
   syncAgentVerificationStatus();
   renderAgentManagement();
   renderEscrowPanel();
 }
 
 async function loadRiskAlerts() {
-  if (!api?.available || !api?.fetchRiskAlerts) {
+  if (!supabaseModeReady() || !api?.fetchRiskAlerts) {
+    state.riskAlerts = DEMO_MODE ? [...seedState.riskAlerts] : [];
     renderAuditLog(getActiveLogFilter());
+    renderAdminActivityLog();
     return;
   }
 
   const { data, error } = await api.fetchRiskAlerts();
   if (error) {
     console.error(error);
+    setBackendAvailability(false);
+    state.riskAlerts = DEMO_MODE ? [...seedState.riskAlerts] : [];
     renderAuditLog(getActiveLogFilter());
+    renderAdminActivityLog();
     return;
   }
 
-  state.riskAlerts = Array.isArray(data) ? data.map(normalizeRiskAlert) : state.riskAlerts;
-  if (state.riskAlerts.length) {
-    state.riskAlerts.forEach((alert) => addAuditLog('circumvention', 'SYSTEM', `${alert.reason} for ${alert.property}.`));
-  }
+  setBackendAvailability(true);
+  state.riskAlerts = Array.isArray(data) ? data.map(normalizeRiskAlert) : [];
+  renderAuditLog(getActiveLogFilter());
+  renderAdminActivityLog();
 }
 
 function renderAgentListings() {
   const tbody = $('#agentListingsTable');
   if (!tbody) return;
 
-  tbody.innerHTML = state.listings.map((listing) => `
+  const listings = getDerivedListings();
+  tbody.innerHTML = listings.map((listing) => `
     <tr>
       <td>${listing.property}</td>
       <td>${listing.price}</td>
@@ -960,24 +1405,19 @@ async function submitVerificationRequest() {
 
   const payload = {
     agent_id: state.currentUser.id,
-    agent_name: state.currentUser.email || DEFAULT_AGENT.name,
-    status: 'pending_verification',
+    agent: state.currentAgentProfile?.full_name || state.currentUser.user_metadata?.full_name || state.currentUser.email || DEFAULT_AGENT.name,
     note: notes,
+    status: 'pending_verification',
     submitted_at: new Date().toISOString()
   };
 
-  let createdRequest = normalizeAgentVerification(payload);
-  if (api?.available && api?.createAgentVerification) {
-    const { data, error } = await api.createAgentVerification(payload);
-    if (error) {
-      console.error(error);
-      showToast(error.message || 'Failed to submit the verification request.', 'error');
-      return;
-    }
-    createdRequest = normalizeAgentVerification(data?.[0] || payload);
+  if (DEMO_MODE) {
+    state.agentVerifications = [normalizeAgentVerification(payload), ...state.agentVerifications];
+  } else {
+    showToast('The quick verification form is still demo-only. Live verification needs document upload fields before it can write to Supabase.', 'warning');
+    return;
   }
 
-  state.agentVerifications.unshift(createdRequest);
   syncAgentVerificationStatus();
   renderAgentManagement();
   renderEscrowPanel();
@@ -1003,8 +1443,10 @@ function renderAdminRemovalTable() {
       <td><span class="status-badge ${removalStatusClass(request.status)}"><i class="fa-solid fa-clock"></i> ${request.status}</span></td>
       <td>
         ${isPendingRemovalRequest(request)
-          ? `<button class="btn btn-success btn-sm" data-approve-removal="${request.id}"><i class="fa-solid fa-check"></i></button>
-             <button class="btn btn-danger btn-sm" data-reject-removal="${request.id}"><i class="fa-solid fa-xmark"></i></button>`
+          ? state.userRole === 'admin'
+            ? `<button class="btn btn-success btn-sm" data-approve-removal="${request.id}"><i class="fa-solid fa-check"></i></button>
+               <button class="btn btn-danger btn-sm" data-reject-removal="${request.id}"><i class="fa-solid fa-xmark"></i></button>`
+            : '<span style="color:var(--muted); font-size:.88rem;">Pending review</span>'
           : '<span style="color:var(--muted); font-size:.88rem;">Reviewed</span>'}
       </td>
     </tr>
@@ -1033,10 +1475,10 @@ function renderRemovalRequests() {
         </div>
         <div class="mini-divider"></div>
         <div style="color:#cbd5e1">${request.reason}</div>
-        <div class="modal-actions" style="margin-top:14px; justify-content:flex-start;">
+        ${state.userRole === 'admin' ? `<div class="modal-actions" style="margin-top:14px; justify-content:flex-start;">
           <button class="btn btn-success btn-sm" data-approve-removal="${request.id}"><i class="fa-solid fa-check"></i> Approve</button>
           <button class="btn btn-danger btn-sm" data-reject-removal="${request.id}"><i class="fa-solid fa-ban"></i> Reject</button>
-        </div>
+        </div>` : ''}
       </div>
     `).join('')
     : `
@@ -1089,7 +1531,7 @@ function renderAuditLog(filter = 'all') {
   const container = $('#auditLog');
   if (!container) return;
 
-  const logs = filter === 'all' ? state.logs : state.logs.filter((log) => log.type === filter);
+  const logs = getAuditEntries(filter);
   container.innerHTML = logs.length
     ? logs.map((log) => `
       <div class="audit-item">
@@ -1127,6 +1569,7 @@ function populateRemovalPropertySelect() {
 
   const propertyNames = [...new Set(
     state.properties
+      .filter((property) => !state.currentUser || state.userRole === 'admin' || String(property.agentId) === String(state.currentUser.id))
       .filter((property) => !isPropertyRemoved(property))
       .map((property) => property.title)
   )];
@@ -1135,11 +1578,6 @@ function populateRemovalPropertySelect() {
 }
 
 async function handleSignIn() {
-  if (!api?.available || !api?.signIn) {
-    showToast('Supabase browser tools failed to load. Check the local script paths.', 'error');
-    return;
-  }
-
   const email = $('#loginEmail')?.value.trim();
   const password = $('#loginPassword')?.value || '';
   if (!email || !password) {
@@ -1147,81 +1585,205 @@ async function handleSignIn() {
     return;
   }
 
-  const signInBtn = $('#signInBtn');
-  if (signInBtn) signInBtn.disabled = true;
+  const authBtn = $('#authActionBtn');
+  if (authBtn) authBtn.disabled = true;
 
-  const { data, error } = await api.signIn(email, password);
+  let authUser = null;
+  let authError = null;
 
-  if (signInBtn) signInBtn.disabled = false;
+  if (supabaseModeReady() && api?.signIn) {
+    const { data, error } = await api.signIn(email, password);
+    if (error) {
+      authError = error;
+    } else {
+      authUser = data?.user || data?.session?.user || null;
+      setBackendAvailability(true);
+    }
+  } else if (DEMO_MODE) {
+    const localAgent = findStoredAgentByCredentials(email, password);
+    if (localAgent) {
+      authUser = {
+        id: localAgent.id,
+        email: localAgent.email,
+        user_metadata: { full_name: localAgent.name, agency: localAgent.agency }
+      };
+      authError = null;
+      state.userRole = localAgent.role || 'agent';
+    }
+  } else {
+    authError = new Error('Supabase is unavailable in live mode. Demo fallback is disabled.');
+    setBackendAvailability(false);
+  }
 
-  if (error) {
-    console.error(error);
-    showToast(error.message || 'Sign in failed.', 'error');
+  if (authBtn) authBtn.disabled = false;
+
+  if (!authUser) {
+    console.error(authError || 'Authentication failed.');
+    showToast(authError?.message || 'Sign in failed. Check your credentials.', 'error');
     return;
   }
 
-  state.currentUser = data?.user || data?.session?.user || null;
-  state.userRole = state.loginRole; // Set role based on what user selected
-  state.userEmail = email;
-  
-  // Persist to localStorage for session restore
-  localStorage.setItem('propertyflow_session', JSON.stringify({
-    user: state.currentUser,
-    role: state.userRole,
-    email: state.userEmail,
-    timestamp: Date.now()
-  }));
-  
-  updateAuthUi();
-  await loadRemovalRequests();
+  await applyAuthenticatedUser(authUser, { ensureProfile: USE_SUPABASE });
+
+  if (DEMO_MODE) {
+    localStorage.setItem('propertyflow_session', JSON.stringify({
+      user: state.currentUser,
+      role: state.userRole,
+      email: state.userEmail,
+      timestamp: Date.now()
+    }));
+  }
+
+  await Promise.all([
+    loadProperties(),
+    loadRemovalRequests(),
+    loadDeals(),
+    loadAgentProfiles(),
+    loadAgentVerifications(),
+    loadEscrowMilestones(),
+    loadRiskAlerts()
+  ]);
   closeModal('loginModal');
   if ($('#loginEmail')) $('#loginEmail').value = '';
   if ($('#loginPassword')) $('#loginPassword').value = '';
-  showToast(`Signed in as ${state.userRole === 'agent' ? 'Agent' : 'Admin'}.`, 'success');
-  
-  // Auto-navigate to appropriate portal
+  showToast(`Signed in as ${state.userRole === 'admin' ? 'Admin' : 'Agent'}.`, 'success');
+
   setTimeout(() => {
-    navigateToView(state.userRole === 'agent' ? 'agent' : 'admin');
+    navigateToView(state.userRole === 'admin' ? 'admin' : 'agent');
   }, 500);
 }
 
+async function handleSignUp() {
+  const name = $('#signupName')?.value.trim();
+  const agency = $('#signupAgency')?.value.trim() || 'Independent Agent';
+  const email = $('#loginEmail')?.value.trim();
+  const password = $('#loginPassword')?.value || '';
+  const confirmPassword = $('#signupPasswordConfirm')?.value || '';
+
+  if (!name || !email || !password || !confirmPassword) {
+    showToast('Fill in every signup field.', 'error');
+    return;
+  }
+
+  if (password !== confirmPassword) {
+    showToast('Passwords do not match.', 'error');
+    return;
+  }
+
+  if (password.length < 6) {
+    showToast('Password should be at least 6 characters.', 'error');
+    return;
+  }
+
+  if (DEMO_MODE && findStoredAgentByEmail(email)) {
+    showToast('An agent account with that email already exists.', 'error');
+    return;
+  }
+
+  const authBtn = $('#authActionBtn');
+  if (authBtn) authBtn.disabled = true;
+
+  let createdUser = null;
+  let signupError = null;
+  let signedInImmediately = DEMO_MODE;
+
+  if (supabaseModeReady() && api?.signUp) {
+    const { data, error } = await api.signUp(email, password, { full_name: name, agency });
+    if (error) {
+      signupError = error;
+    } else {
+      createdUser = data?.session?.user || data?.user || null;
+      signedInImmediately = Boolean(data?.session?.user);
+      setBackendAvailability(true);
+    }
+  } else if (DEMO_MODE) {
+    const localAgent = {
+      id: `local-${Date.now()}`,
+      name,
+      agency,
+      email,
+      password,
+      role: 'agent'
+    };
+    const agents = getStoredAgents();
+    agents.push(localAgent);
+    localStorage.setItem('propertyflow_registered_agents', JSON.stringify(agents));
+    createdUser = {
+      id: localAgent.id,
+      email: localAgent.email,
+      user_metadata: { full_name: name, agency }
+    };
+  } else {
+    signupError = new Error('Supabase signup is unavailable in live mode. Demo fallback is disabled.');
+    setBackendAvailability(false);
+  }
+
+  if (authBtn) authBtn.disabled = false;
+  if (signupError) {
+    console.error(signupError);
+    showToast(signupError.message || 'Signup failed.', 'error');
+    return;
+  }
+
+  if (USE_SUPABASE && !signedInImmediately) {
+    closeModal('loginModal');
+    if ($('#loginEmail')) $('#loginEmail').value = '';
+    if ($('#loginPassword')) $('#loginPassword').value = '';
+    clearSignupFields();
+    showToast('Account created. Confirm your email, then sign in.', 'success');
+    return;
+  }
+
+  await applyAuthenticatedUser(createdUser, { ensureProfile: USE_SUPABASE });
+
+  if (DEMO_MODE) {
+    localStorage.setItem('propertyflow_session', JSON.stringify({
+      user: state.currentUser,
+      role: state.userRole,
+      email: state.userEmail,
+      timestamp: Date.now()
+    }));
+  }
+
+  closeModal('loginModal');
+  if ($('#loginEmail')) $('#loginEmail').value = '';
+  if ($('#loginPassword')) $('#loginPassword').value = '';
+  clearSignupFields();
+  await Promise.all([
+    loadProperties(),
+    loadRemovalRequests(),
+    loadDeals(),
+    loadAgentProfiles(),
+    loadAgentVerifications(),
+    loadEscrowMilestones(),
+    loadRiskAlerts()
+  ]);
+  showToast('Agent registered and signed in.', 'success');
+  setTimeout(() => navigateToView('agent'), 500);
+}
+
 async function handleLogout() {
-  if (api?.available && api?.signOut) {
+  if (supabaseModeReady() && api?.signOut) {
     const { error } = await api.signOut();
     if (error) {
       console.error(error);
+      showToast(error.message || 'Sign out failed.', 'error');
+      return;
     }
   }
 
-  state.currentUser = null;
-  state.userRole = null;
-  state.userEmail = null;
-  
-  // Clear persisted session
   localStorage.removeItem('propertyflow_session');
-  
-  updateAuthUi();
+  await applyAuthenticatedUser(null);
+  await Promise.all([
+    loadProperties(),
+    loadRemovalRequests(),
+    loadDeals(),
+    loadAgentProfiles(),
+    loadAgentVerifications(),
+    loadEscrowMilestones(),
+    loadRiskAlerts()
+  ]);
   navigateToView('marketplace');
-  showToast('Signed out successfully.', 'success');
-}
-
-async function handleSignOut() {
-  if (!api?.available || !api?.signOut) {
-    state.currentUser = null;
-    updateAuthUi();
-    showToast('Signed out locally.', 'success');
-    return;
-  }
-
-  const { error } = await api.signOut();
-  if (error) {
-    console.error(error);
-    showToast(error.message || 'Sign out failed.', 'error');
-    return;
-  }
-
-  state.currentUser = null;
-  updateAuthUi();
   showToast('Signed out successfully.', 'success');
 }
 
@@ -1233,11 +1795,17 @@ async function saveNewListing() {
   const location = $('#newLocation')?.value.trim();
   const beds = parseInt($('#newBeds')?.value || '0', 10);
   const baths = parseInt($('#newBaths')?.value || '0', 10);
-  const image = $('#newImage')?.value.trim();
+  const imageInput = $('#newImage');
+  const imageFile = imageInput?.files?.[0] ?? null;
   const description = $('#newDesc')?.value.trim();
 
-  if (!title || !price || !location || !image || !description) {
+  if (!title || !price || !location || !description) {
     showToast('Fill in every field before saving.', 'error');
+    return;
+  }
+
+  if (!imageFile) {
+    showToast('Choose an image file before saving the listing.', 'error');
     return;
   }
 
@@ -1248,10 +1816,26 @@ async function saveNewListing() {
     return;
   }
 
+  let imageLocation = null;
+  if (supabaseModeReady() && api.uploadPropertyImage) {
+    const { data: uploadData, error: uploadError } = await api.uploadPropertyImage(state.currentUser.id, imageFile);
+    if (uploadError) {
+      console.error(uploadError);
+      showToast(uploadError.message || 'Image upload failed.', 'error');
+      return;
+    }
+    imageLocation = uploadData?.publicUrl || null;
+  } else if (DEMO_MODE) {
+    imageLocation = URL.createObjectURL(imageFile);
+  } else {
+    showToast('Supabase is unavailable in live mode. Listing creation is disabled until it reconnects.', 'error');
+    return;
+  }
+
   const payload = {
     agent_id: state.currentUser.id,
-    agent_name: state.currentUser.email || DEFAULT_AGENT.name,
-    agency: DEFAULT_AGENT.agency,
+    agent_name: state.currentAgentProfile?.full_name || state.currentUser.email || DEFAULT_AGENT.name,
+    agency_name: state.currentAgentProfile?.agency_name || DEFAULT_AGENT.agency,
     title,
     description,
     price: parsePriceValue(price) ?? price,
@@ -1260,7 +1844,7 @@ async function saveNewListing() {
     location,
     bedrooms: beds,
     bathrooms: baths,
-    image_url: image,
+    image_url: imageLocation,
     commission_rate: COMMISSION_RATE,
     protection_policy: 'Platform enforced',
     status: 'Pending review',
@@ -1270,26 +1854,28 @@ async function saveNewListing() {
   const saveButton = $('#saveListingBtn');
   if (saveButton) saveButton.disabled = true;
 
-  let createdProperty = null;
-  if (api?.available && api?.createProperty) {
-    const { data, error } = await api.createProperty(payload);
-    if (saveButton) saveButton.disabled = false;
+  if (supabaseModeReady() && api?.createProperty) {
+    const { error } = await api.createProperty(payload);
     if (error) {
+      if (saveButton) saveButton.disabled = false;
       console.error(error);
       showToast(error.message || 'Failed to save listing.', 'error');
       return;
     }
-    createdProperty = normalizePropertyRecord(data?.[0] || payload);
+    await loadProperties();
+  } else if (DEMO_MODE) {
+    state.properties = [normalizePropertyRecord(payload), ...state.properties];
   } else {
     if (saveButton) saveButton.disabled = false;
-    createdProperty = normalizePropertyRecord(payload);
-    showToast('Saved listing locally because backend is unavailable.', 'warning');
+    showToast('Supabase is unavailable in live mode. Listing creation is disabled until it reconnects.', 'error');
+    return;
   }
 
-  state.properties.unshift(createdProperty);
-  state.listings.unshift(buildListing(createdProperty));
+  if (saveButton) saveButton.disabled = false;
+  hydrateAgentSummaries();
   renderProperties();
   renderAgentListings();
+  renderAgentManagement();
   populateRemovalPropertySelect();
   closeModal('addListingModal');
   resetListingForm();
@@ -1340,40 +1926,34 @@ async function submitRemovalRequest() {
     created_at: new Date().toISOString()
   };
 
-  let createdRequest = null;
-  if (api?.available && api?.createRemovalRequest) {
-    const { data, error } = await api.createRemovalRequest(requestPayload);
+  if (supabaseModeReady() && api?.createRemovalRequest) {
+    const { error } = await api.createRemovalRequest(requestPayload);
     if (error) {
       console.error(error);
       showToast(error.message || 'Failed to submit the removal request.', 'error');
       return;
     }
-    createdRequest = normalizeRemovalRequest({
-      ...(data?.[0] || requestPayload),
-      property: property.title,
-      agent: state.currentUser.email || property.agent,
-      reason,
-      status: 'pending_review'
-    });
-  } else {
-    createdRequest = normalizeRemovalRequest({
+    await loadRemovalRequests();
+  } else if (DEMO_MODE) {
+    state.removalRequests = [normalizeRemovalRequest({
       ...requestPayload,
       id: `local-${Date.now()}`,
       property: property.title,
       agent: state.currentUser.email || property.agent,
       reason,
       status: 'pending_review'
-    });
-    showToast('Removal request queued locally.', 'warning');
+    }), ...state.removalRequests];
+  } else {
+    showToast('Supabase is unavailable in live mode. Removal requests are disabled until it reconnects.', 'error');
+    return;
   }
 
-  state.removalRequests.unshift(createdRequest);
   renderRemovalRequests();
   renderAdminRemovalTable();
   closeModal('removalRequestModal');
   if ($('#removalReason')) $('#removalReason').value = '';
   addAuditLog('alerts', 'AGENT', `Removal request submitted for ${property.title}.`);
-  detectCircumvention(reason, property.title, state.currentUser.email || property.agent);
+  detectCircumvention(reason, property.title, state.currentUser.email || property.agent, property.id, state.currentUser.id);
 
   const page = document.body.dataset.page;
   if (page === 'admin') {
@@ -1394,7 +1974,12 @@ async function approveRemoval(requestId) {
     return;
   }
 
-  if (api?.available && api?.updateRemovalRequest && api?.updateProperty) {
+  if (state.userRole !== 'admin') {
+    showToast('Only admins can review removal requests.', 'error');
+    return;
+  }
+
+  if (supabaseModeReady() && api?.updateRemovalRequest && api?.updateProperty) {
     const { error: requestError } = await api.updateRemovalRequest(request.id, {
       status: 'approved',
       reviewed_at: new Date().toISOString(),
@@ -1415,19 +2000,21 @@ async function approveRemoval(requestId) {
       console.error(propertyError);
       showToast(propertyError.message || 'Request approved, but the property could not be hidden yet.', 'warning');
     }
+  } else if (!DEMO_MODE) {
+    showToast('Supabase is unavailable in live mode. Admin moderation is disabled until it reconnects.', 'error');
+    return;
+  } else {
+    request.status = 'Approved';
+    request.reviewedAt = new Date().toISOString();
+    request.reviewedBy = state.currentUser.id;
+
+    const property = findPropertyByTitle(request.property);
+    if (property) property.status = 'Removed';
   }
-
-  request.status = 'Approved';
-  request.reviewedAt = new Date().toISOString();
-  request.reviewedBy = state.currentUser.id;
-
-  const property = findPropertyByTitle(request.property);
-  if (property) property.status = 'Removed';
 
   addAuditLog('alerts', 'ADMIN', `Removal approved for ${request.property}. Reason accepted: ${request.reason}`);
   await loadProperties();
   await loadRemovalRequests();
-  removeListingByPropertyTitle(request.property);
   showToast('Removal approved.', 'success');
 }
 
@@ -1442,7 +2029,12 @@ async function rejectRemoval(requestId) {
     return;
   }
 
-  if (api?.available && api?.updateRemovalRequest) {
+  if (state.userRole !== 'admin') {
+    showToast('Only admins can review removal requests.', 'error');
+    return;
+  }
+
+  if (supabaseModeReady() && api?.updateRemovalRequest) {
     const { error } = await api.updateRemovalRequest(request.id, {
       status: 'rejected',
       reviewed_at: new Date().toISOString(),
@@ -1454,11 +2046,14 @@ async function rejectRemoval(requestId) {
       showToast(error.message || 'Failed to reject the removal request.', 'error');
       return;
     }
+  } else if (!DEMO_MODE) {
+    showToast('Supabase is unavailable in live mode. Admin moderation is disabled until it reconnects.', 'error');
+    return;
+  } else {
+    request.status = 'Rejected';
+    request.reviewedAt = new Date().toISOString();
+    request.reviewedBy = state.currentUser.id;
   }
-
-  request.status = 'Rejected';
-  request.reviewedAt = new Date().toISOString();
-  request.reviewedBy = state.currentUser.id;
 
   addAuditLog('alerts', 'ADMIN', `Removal rejected for ${request.property}. Review flagged.`);
   await loadRemovalRequests();
@@ -1481,8 +2076,26 @@ function bindEvents() {
     if (state.currentUser) {
       void handleLogout();
     } else {
-      setLoginRole('agent'); // default to agent
+      setAuthMode(false);
       openModal('loginModal');
+    }
+  });
+
+  $('#openSignupBtn')?.addEventListener('click', () => {
+    setAuthMode(true);
+    openModal('loginModal');
+  });
+
+  $('#toggleAuthMode')?.addEventListener('click', (event) => {
+    event.preventDefault();
+    setAuthMode(!state.signupMode);
+  });
+
+  $('#authActionBtn')?.addEventListener('click', () => {
+    if (state.signupMode) {
+      void handleSignUp();
+    } else {
+      void handleSignIn();
     }
   });
 
@@ -1491,8 +2104,6 @@ function bindEvents() {
     populateRemovalPropertySelect();
     openModal('removalRequestModal');
   });
-  $('#signInBtn')?.addEventListener('click', () => void handleSignIn());
-
   $$('.modal-overlay').forEach((overlay) => {
     overlay.addEventListener('click', (event) => {
       if (event.target === overlay) overlay.classList.remove('active');
@@ -1540,7 +2151,7 @@ function bindEvents() {
     link.addEventListener('click', (event) => {
       event.preventDefault();
       showAdminTab(link.dataset.adminTab);
-      if (link.dataset.adminTab === 'admin-protection') renderAuditLog(getActiveLogFilter());
+      if (link.dataset.adminTab === 'admin-alerts') renderAuditLog(getActiveLogFilter());
     });
   });
 
@@ -1600,7 +2211,11 @@ function bindEvents() {
   $('#loginPassword')?.addEventListener('keydown', (event) => {
     if (event.key === 'Enter') {
       event.preventDefault();
-      void handleSignIn();
+      if (state.signupMode) {
+        void handleSignUp();
+      } else {
+        void handleSignIn();
+      }
     }
   });
 }
@@ -1609,8 +2224,8 @@ function bindEvents() {
 function renderAdminActivityLog() {
   const container = $('#adminActivityLog');
   if (!container) return;
-  
-  const recentLogs = state.logs.slice(0, 6);
+
+  const recentLogs = getAuditEntries('all').slice(0, 6);
   container.innerHTML = recentLogs.length
     ? recentLogs.map((log) => `
       <div class="audit-item">
@@ -1678,13 +2293,14 @@ function renderAdminEscrowTable() {
     <tr>
       <td>${milestone.property}</td>
       <td>${milestone.step}</td>
-      <td>${currencyFormatter.format(123456)}</td>
+      <td>${currencyFormatter.format(Number(milestone.amount || 0))}</td>
       <td>${milestone.status === 'Completed' ? 'Ready' : 'In Progress'}</td>
     </tr>
   `).join('');
 }
 
 async function initCommon() {
+  setBackendAvailability(Boolean(api?.available) || DEMO_MODE);
   renderProperties();
   renderAgentListings();
   renderCommissions();
@@ -1713,19 +2329,33 @@ async function initCommon() {
       userMenu.style.display = 'none';
     }
   });
-  
+
   updateAuthUi();
-  await restoreCurrentUser();
+  if (DEMO_MODE) {
+    restoreSessionFromStorage();
+    updateAuthUi();
+  } else {
+    await restoreCurrentUser();
+    if (supabaseModeReady() && api?.onAuthStateChange) {
+      api.onAuthStateChange(async (_event, session) => {
+        await applyAuthenticatedUser(session?.user || null, { ensureProfile: Boolean(session?.user) });
+      });
+    }
+  }
+
   await Promise.all([
     loadProperties(),
     loadRemovalRequests(),
     loadDeals(),
+    loadAgentProfiles(),
     loadAgentVerifications(),
+    loadEscrowMilestones(),
     loadRiskAlerts()
   ]);
 }
 
 function restoreSessionFromStorage() {
+  if (!DEMO_MODE) return false;
   const session = localStorage.getItem('propertyflow_session');
   if (session) {
     try {
@@ -1733,8 +2363,8 @@ function restoreSessionFromStorage() {
       // Check if session is not too old (24 hours)
       if (Date.now() - data.timestamp < 86400000) {
         state.currentUser = data.user;
-        state.userRole = data.role;
         state.userEmail = data.email;
+        state.userRole = data.role || 'agent';
         return true;
       }
     } catch (e) {
@@ -1747,14 +2377,21 @@ function restoreSessionFromStorage() {
 
 async function initApp() {
   // Try to restore session first
-  const hasSession = restoreSessionFromStorage();
-  
+  const hasSession = DEMO_MODE ? restoreSessionFromStorage() : false;
+  const requestedView = window.location.hash.replace('#', '');
+
   await initCommon();
 
   // Navigate to appropriate view
-  if (hasSession && state.userRole) {
+  if (requestedView) {
+    navigateToView(requestedView);
+  } else if (state.currentUser && state.userRole) {
     setTimeout(() => {
-      navigateToView(state.userRole === 'agent' ? 'agent' : 'admin');
+      navigateToView(state.userRole === 'admin' ? 'admin' : 'agent');
+    }, 100);
+  } else if (hasSession && state.userRole) {
+    setTimeout(() => {
+      navigateToView(state.userRole === 'admin' ? 'admin' : 'agent');
     }, 100);
   } else {
     navigateToView('marketplace');

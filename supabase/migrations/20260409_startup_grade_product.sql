@@ -16,7 +16,12 @@ language sql
 stable
 as $$
   select coalesce(auth.jwt() ->> 'role' = 'admin', false)
-    or coalesce(auth.jwt() -> 'app_metadata' ->> 'role' = 'admin', false);
+    or coalesce(auth.jwt() -> 'app_metadata' ->> 'role' = 'admin', false)
+    or exists (
+      select 1 from public.profiles p
+      where p.user_id = auth.uid()
+        and p.role = 'admin'
+    );
 $$;
 
 create table if not exists public.agent_profiles (
@@ -33,6 +38,14 @@ create table if not exists public.agent_profiles (
   trust_score integer not null default 50 check (trust_score between 0 and 100),
   escrow_enabled boolean not null default false,
   commission_hold_percentage numeric(5,2) not null default 2.00 check (commission_hold_percentage >= 0 and commission_hold_percentage <= 100),
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now())
+);
+
+create table if not exists public.profiles (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  role text not null default 'agent'
+    check (role in ('agent', 'admin')),
   created_at timestamptz not null default timezone('utc', now()),
   updated_at timestamptz not null default timezone('utc', now())
 );
@@ -242,6 +255,12 @@ before update on public.agent_profiles
 for each row
 execute function public.set_updated_at();
 
+drop trigger if exists profiles_set_updated_at on public.profiles;
+create trigger profiles_set_updated_at
+before update on public.profiles
+for each row
+execute function public.set_updated_at();
+
 drop trigger if exists deals_set_updated_at on public.deals;
 create trigger deals_set_updated_at
 before update on public.deals
@@ -279,11 +298,25 @@ for each row
 execute function public.sync_profile_verification_status();
 
 alter table public.agent_profiles enable row level security;
+alter table public.profiles enable row level security;
 alter table public.agent_verifications enable row level security;
 alter table public.deals enable row level security;
 alter table public.escrow_milestones enable row level security;
 alter table public.commission_events enable row level security;
 alter table public.risk_alerts enable row level security;
+
+drop policy if exists "profiles are readable" on public.profiles;
+create policy "profiles are readable"
+  on public.profiles
+  for select
+  using (auth.uid() = user_id or public.is_admin());
+
+drop policy if exists "profiles managed by owner or admin" on public.profiles;
+create policy "profiles managed by owner or admin"
+  on public.profiles
+  for all
+  using (auth.uid() = user_id or public.is_admin())
+  with check (auth.uid() = user_id or public.is_admin());
 
 drop policy if exists "agent profiles are readable" on public.agent_profiles;
 create policy "agent profiles are readable"
@@ -416,3 +449,71 @@ create policy "risk alerts updated by assigned agent or admin"
   for update
   using (auth.uid() = agent_id or public.is_admin())
   with check (auth.uid() = agent_id or public.is_admin());
+
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.tables
+    WHERE table_schema = 'public'
+      AND table_name = 'removal_requests'
+  ) THEN
+    alter table public.removal_requests enable row level security;
+
+    drop policy if exists "removal requests visible to requester or admin" on public.removal_requests;
+    create policy "removal requests visible to requester or admin"
+      on public.removal_requests
+      for select
+      using (auth.uid() = agent_id or public.is_admin());
+
+    drop policy if exists "removal requests submitted by requester or admin" on public.removal_requests;
+    create policy "removal requests submitted by requester or admin"
+      on public.removal_requests
+      for insert
+      with check (auth.uid() = agent_id or public.is_admin());
+
+    drop policy if exists "removal requests reviewed by admin" on public.removal_requests;
+    create policy "removal requests reviewed by admin"
+      on public.removal_requests
+      for update
+      using (public.is_admin())
+      with check (public.is_admin());
+
+    drop policy if exists "removal requests deleted by admin" on public.removal_requests;
+    create policy "removal requests deleted by admin"
+      on public.removal_requests
+      for delete
+      using (public.is_admin());
+  END IF;
+END;
+$$;
+
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.tables
+    WHERE table_schema = 'public'
+      AND table_name = 'properties'
+  ) THEN
+    alter table public.properties enable row level security;
+
+    drop policy if exists "properties are public" on public.properties;
+    create policy "properties are public"
+      on public.properties
+      for select
+      using (true);
+
+    drop policy if exists "properties inserted by owner or admin" on public.properties;
+    create policy "properties inserted by owner or admin"
+      on public.properties
+      for insert
+      with check (auth.uid() = agent_id or public.is_admin());
+
+    drop policy if exists "properties managed by owner or admin" on public.properties;
+    create policy "properties managed by owner or admin"
+      on public.properties
+      for update
+      using (auth.uid() = agent_id or public.is_admin())
+      with check (auth.uid() = agent_id or public.is_admin());
+  END IF;
+END;
+$$;
